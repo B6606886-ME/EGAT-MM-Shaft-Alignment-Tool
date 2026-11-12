@@ -9,6 +9,7 @@ import matplotlib.patches as patches
 import numpy as np
 import streamlit as st
 
+
 # ตั้งค่าระบบแสดงผล
 st.set_page_config(
     page_title="EGAT Mae Moh 8-13 | LP-Gen Alignment Control",
@@ -18,7 +19,31 @@ st.set_page_config(
 )
 
 # รองรับฟอนต์ภาษาไทยสำหรับระบบ Windows
-plt.rcParams['font.sans-serif'] = ['Tahoma', 'Leelawadee UI', 'DejaVu Sans']
+import os
+from matplotlib import font_manager
+
+# บังคับโหลดฟอนต์ภาษาไทยจากระบบ Windows โดยตรง (แก้ปัญหาภาษาไทยเป็นกล่องสี่เหลี่ยม 100%)
+thai_font_paths = [
+    r"C:\Windows\Fonts\tahoma.ttf",
+    r"C:\Windows\Fonts\leelawui.ttf",
+    r"C:\Windows\Fonts\THSarabunNew.ttf",
+    r"C:\Windows\Fonts\angsa.ttf",
+    r"C:\Windows\Fonts\cordia.ttf",
+]
+
+loaded_font_name = None
+for f_path in thai_font_paths:
+    if os.path.exists(f_path):
+        font_manager.fontManager.addfont(f_path)
+        prop = font_manager.FontProperties(fname=f_path)
+        loaded_font_name = prop.get_name()
+        break
+
+if loaded_font_name:
+    plt.rcParams['font.sans-serif'] = [loaded_font_name, 'Tahoma', 'Leelawadee UI', 'DejaVu Sans']
+else:
+    plt.rcParams['font.sans-serif'] = ['Tahoma', 'Leelawadee UI', 'Angsana New', 'Cordia New', 'DejaVu Sans']
+
 plt.rcParams['font.family'] = 'sans-serif'
 plt.rcParams['axes.unicode_minus'] = False
 
