@@ -1,13 +1,11 @@
 """
-Streamlit Web Application: LP-Generator Coupling Alignment Precision Tool (Smart TIR & Thai Font Fixed)
+Streamlit Web Application: LP-Generator Coupling Alignment Precision Tool (Smart TIR Edition)
 Standard: EGAT Mae Moh Power Plant Unit 8-13 (หปกร-ธ.)
 Reference: Alignment & Eccentricity Manual (นายสมเกียรติ สมหล่อ - กฟผ.)
 """
 
-import os
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
-from matplotlib import font_manager
 import numpy as np
 import streamlit as st
 
@@ -19,28 +17,33 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# =========================================================================
-# ค้นหาและลงทะเบียนฟอนต์ภาษาไทยจากระบบ Windows โดยตรง (แก้ภาษาไทยเป็นกล่องสี่เหลี่ยม)
-# =========================================================================
-win_font_dir = r"C:\Windows\Fonts"
-thai_candidates = [
-    "tahoma.ttf", "leelawui.ttf", "leelawad.ttf",
-    "angsa.ttf", "cordia.ttf", "THSarabunNew.ttf",
-    "browa.ttf", "upcjb.ttf"
+# รองรับฟอนต์ภาษาไทยสำหรับระบบ Windows
+import os
+from matplotlib import font_manager
+
+# บังคับโหลดฟอนต์ภาษาไทยจากระบบ Windows โดยตรง (แก้ปัญหาภาษาไทยเป็นกล่องสี่เหลี่ยม 100%)
+thai_font_paths = [
+    r"C:\Windows\Fonts\tahoma.ttf",
+    r"C:\Windows\Fonts\leelawui.ttf",
+    r"C:\Windows\Fonts\THSarabunNew.ttf",
+    r"C:\Windows\Fonts\angsa.ttf",
+    r"C:\Windows\Fonts\cordia.ttf",
 ]
 
-registered_fonts = []
-for fname in thai_candidates:
-    fpath = os.path.join(win_font_dir, fname)
-    if os.path.exists(fpath):
-        font_manager.fontManager.addfont(fpath)
-        prop = font_manager.FontProperties(fname=fpath)
-        registered_fonts.append(prop.get_name())
+loaded_font_name = None
+for f_path in thai_font_paths:
+    if os.path.exists(f_path):
+        font_manager.fontManager.addfont(f_path)
+        prop = font_manager.FontProperties(fname=f_path)
+        loaded_font_name = prop.get_name()
+        break
+
+if loaded_font_name:
+    plt.rcParams['font.sans-serif'] = [loaded_font_name, 'Tahoma', 'Leelawadee UI', 'DejaVu Sans']
+else:
+    plt.rcParams['font.sans-serif'] = ['Tahoma', 'Leelawadee UI', 'Angsana New', 'Cordia New', 'DejaVu Sans']
 
 plt.rcParams['font.family'] = 'sans-serif'
-plt.rcParams['font.sans-serif'] = registered_fonts + [
-    'Tahoma', 'Leelawadee UI', 'Angsana New', 'Cordia New', 'TH Sarabun New', 'DejaVu Sans'
-]
 plt.rcParams['axes.unicode_minus'] = False
 
 # =========================================================================
@@ -231,10 +234,12 @@ def smart_zero_reference_radial(t_val: float, b_val: float, l_val: float, r_val:
     1. แกนบน-ล่าง (T & B): ล็อกให้ Top = 0.00 เสมอตามมาตรฐานการเซ็ตเกจหน้างาน
     2. แกนซ้าย-ขวา (L & R): ตัดสินใจเลือกฝั่งที่มีค่าน้อยกว่าให้เป็น 0.00 ตามหลักหนังสือหน้า 20, 25
     """
+    # แกนบน-ล่าง: ล็อก Top = 0.00
     offset_tb = -t_val
     z_t = 0.00
     z_b = b_val + offset_tb
 
+    # แกนซ้าย-ขวา: เปรียบเทียบ L กับ R อัตโนมัติ
     if l_val < r_val:
         offset_lr = -l_val
         z_l = 0.00
@@ -634,7 +639,7 @@ st.markdown("""
 <div class="pp-header">
     <div>
         <div class="pp-header-title">⚡ ระบบคำนวณและสั่งงานตั้งศูนย์เพลา LP TURBINE – GENERATOR</div>
-        <div class="pp-header-sub">แผนกบำรุงรักษาเครื่องกลกังหันไอน้ำ (หปกร-ธ.) | โรงไฟฟ้าแม่เมาะ ยูนิต 8–13</div>
+        <div class="pp-header-sub">แผนกบำรุงรักษากังหัน (หปกร-ธ.) | โรงไฟฟ้าแม่เมาะ ยูนิต 8–13</div>
     </div>
     <div class="pp-badge">EGAT MM 8-13 STANDARD</div>
 </div>
@@ -643,7 +648,7 @@ st.markdown("""
 col_input, col_view = st.columns([1.15, 1.85], gap="large")
 
 # =========================================================================
-# Left Panel: ใบกรอกข้อมูลหน้างาน (Zero-Click UI)
+# Left Panel: ใบกรอกข้อมูลหน้างาน (Zero-Click UI — ตัดปุ่มเลือกซับซ้อนออก)
 # =========================================================================
 with col_input:
     st.markdown("### 📝 1. เลือกวิธีปรับตั้ง & ป้อนค่าหน้างาน")
@@ -656,6 +661,7 @@ with col_input:
     sol_selected = st.radio("เลือกแนวทางการจัดแผ่นชิม (Alignment Strategy):", sol_options, key="active_solution_radio")
     choice_val = sol_selected[9]
 
+    # ปุ่มเครื่องมือสำหรับพี่ช่าง: โหลดตัวอย่างทดสอบ / ล้างค่าทั้งหมด
     b_col1, b_col2 = st.columns(2)
     if b_col1.button("📋 โหลดค่าตัวอย่างหน้างาน", use_container_width=True):
         st.session_state.d_coupling = 760.0
@@ -686,6 +692,7 @@ with col_input:
             st.number_input("ระยะถึง LP Brg.4 (mm)", value=None, placeholder="เช่น 550", step=10.0, key="l_brg4")
             st.number_input("ระยะถึง Gen Brg.6 (mm)", value=None, placeholder="เช่น 9790", step=10.0, key="l_brg6")
 
+    # ตารางกรอกข้อมูลตามแบบฟอร์ม Coupling LP-Gen
     st.markdown('<div class="sheet-title">ตารางบันทึกค่า Coupling LP-Gen (หน่วย: mm)</div>', unsafe_allow_html=True)
 
     st.markdown("**1) ค่าแนวรัศมี (Radial - จับ Gen จี้ LP)**")
@@ -777,8 +784,8 @@ with col_view:
     # =====================================================================
     # ส่วนที่ A: ตัวแปรคำนวณชิม (Raw Difference — แยกเด็ดขาดจากการเซ็ต 0 บนรูป)
     # =====================================================================
-    delta_x_v = (raw_a_bottom - raw_a_top) - TARGET_AXIAL_GAP_MM
-    delta_gap_lr = raw_a_left - raw_a_right
+    delta_x_v = (raw_a_bottom - raw_a_top) - TARGET_AXIAL_GAP_MM   # > 0 = อ้าด้านล่าง (Bottom Open)
+    delta_gap_lr = raw_a_left - raw_a_right                        # > 0 = อ้าด้านซ้าย (Left Open)
 
     diff_r_mm = abs((r_top + r_bottom) - (r_left + r_right))
     valid_r = diff_r_mm <= TOLERANCE_RADIAL_MM
@@ -786,6 +793,7 @@ with col_view:
     diff_a_mm = abs((raw_a_top + raw_a_bottom) - (raw_a_left + raw_a_right))
     valid_a = diff_a_mm <= 0.025
 
+    # กฎหาร 2 ของแนว Radial (จับฐานเกจที่ Gen จี้ไปที่ LP)
     gen_above_lp_mm = (r_top - r_bottom) / 2.0
     comp_vertical_mm = gen_above_lp_mm + TARGET_GEN_DOWN_MM
     gen_right_of_lp_mm = (r_left - r_right) / 2.0
@@ -793,6 +801,7 @@ with col_view:
     target_radial_bottom_mm = 2.0 * TARGET_GEN_DOWN_MM
     target_radial_side_mm = TARGET_GEN_DOWN_MM
 
+    # คำนวณระยะปรับตั้งที่ตำแหน่ง Bearing (+ คือ หนุนขึ้น/เลื่อนซ้าย L, - คือ ถอนออก/เลื่อนขวา R)
     def calc_adjustments(arm_len_mm, is_lp_side=False):
         ax_v = (delta_x_v * arm_len_mm) / d_coupling
         if is_lp_side:
@@ -971,7 +980,7 @@ with col_view:
             ax_bar.text(bar.get_x() + bar.get_width() / 2., y_pos, f"{s_val:+.3f} mm\n({action_word})",
                         ha='center', va=va_align, fontsize=9.5, fontweight='bold')
 
-        st.pyplot(fig2, bbox_inches='tight')
+        st.pyplot(fig2)
 
     # ---------------------------------------------------------------------
     # Tab 2: ใบบันทึกผลและวิเคราะห์เกจ
@@ -1032,7 +1041,7 @@ with col_view:
         )
 
         plt.subplots_adjust(top=0.94, bottom=0.06, hspace=0.38, wspace=0.25)
-        st.pyplot(fig1, bbox_inches='tight')
+        st.pyplot(fig1)
 
     # ---------------------------------------------------------------------
     # Tab 3: Dial Setup Diagram
@@ -1059,7 +1068,7 @@ with col_view:
         )
 
         plt.subplots_adjust(top=0.95, bottom=0.08, hspace=0.38, wspace=0.25)
-        st.pyplot(fig3, bbox_inches='tight')
+        st.pyplot(fig3)
 
     # ---------------------------------------------------------------------
     # Tab 4: ขั้นตอนการคำนวณอย่างละเอียดตามหนังสือ อ.สมเกียรติ สมหล่อ
