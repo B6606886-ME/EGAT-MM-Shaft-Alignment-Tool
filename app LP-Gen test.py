@@ -10,6 +10,26 @@ import numpy as np
 import streamlit as st
 import os
 from matplotlib import font_manager
+import os
+import glob
+from matplotlib import font_manager
+
+# ค้นหาและลงทะเบียนฟอนต์ภาษาไทยที่มีในเครื่อง Windows ทั้งหมด
+win_font_dir = r"C:\Windows\Fonts"
+thai_candidates = ["tahoma.ttf", "leelawui.ttf", "leelawad.ttf", "angsa.ttf", "cordia.ttf", "THSarabunNew.ttf", "browa.ttf", "upcjb.ttf"]
+
+registered_fonts = []
+for fname in thai_candidates:
+    fpath = os.path.join(win_font_dir, fname)
+    if os.path.exists(fpath):
+        font_manager.fontManager.addfont(fpath)
+        prop = font_manager.FontProperties(fname=fpath)
+        registered_fonts.append(prop.get_name())
+
+# ตั้งค่าให้ Matplotlib ใช้ฟอนต์ไทยเป็นอันดับแรกเสมอ (ทั้งตัวธรรมดาและตัวหนา)
+plt.rcParams['font.family'] = 'sans-serif'
+plt.rcParams['font.sans-serif'] = registered_fonts + ['Tahoma', 'Leelawadee UI', 'Angsana New', 'Cordia New', 'TH Sarabun New', 'DejaVu Sans']
+plt.rcParams['axes.unicode_minus'] = False
 
 
 # ตั้งค่าระบบแสดงผล
