@@ -8,6 +8,8 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import numpy as np
 import streamlit as st
+import os
+from matplotlib import font_manager
 
 
 # ตั้งค่าระบบแสดงผล
@@ -19,8 +21,7 @@ st.set_page_config(
 )
 
 # รองรับฟอนต์ภาษาไทยสำหรับระบบ Windows
-import os
-from matplotlib import font_manager
+
 
 # บังคับโหลดฟอนต์ภาษาไทยจากระบบ Windows โดยตรง (แก้ปัญหาภาษาไทยเป็นกล่องสี่เหลี่ยม 100%)
 thai_font_paths = [
