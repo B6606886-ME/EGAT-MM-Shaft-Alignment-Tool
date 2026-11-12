@@ -967,7 +967,7 @@ with col_view:
         bars = ax_bar.bar(labels, shims, color=colors, width=0.35, edgecolor='black', zorder=3)
         ax_bar.axhline(0, color='black', linewidth=1.2)
         ax_bar.set_ylabel("Vertical Shim (mm)", fontsize=10, fontweight='bold')
-        ax_bar.set_title(f"3. สรุปปริมาณการหนุน/ถอน Shim แนวดิ่งที่ Bearing [SOLUTION {choice_val}]", fontsize=11.5, fontweight='bold', pad=10)
+        ax_bar.set_title(f"3. Summary of Vertical Shim Addition/Removal at the Bearing [SOLUTION {choice_val}]", fontsize=11.5, fontweight='bold', pad=10)
         ax_bar.grid(axis='y', linestyle=':', alpha=0.6)
 
         max_val = max(abs(s) for s in shims) if any(abs(s) > 0 for s in shims) else 0.05
@@ -977,7 +977,7 @@ with col_view:
             h = bar.get_height()
             va_align = 'bottom' if h >= 0 else 'top'
             y_pos = h + (0.015 if h >= 0 else -0.015)
-            action_word = "หนุนเพิ่ม (+)" if s_val > 0 else ("ถอนออก (-)" if s_val < 0 else "FIXED")
+            action_word = "+ Add shim (+)" if s_val > 0 else ("Remove Shim (-)" if s_val < 0 else "FIXED")
             ax_bar.text(bar.get_x() + bar.get_width() / 2., y_pos, f"{s_val:+.3f} mm\n({action_word})",
                         ha='center', va=va_align, fontsize=9.5, fontweight='bold')
 
