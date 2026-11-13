@@ -17,33 +17,9 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# รองรับฟอนต์ภาษาไทยสำหรับระบบ Windows
-import os
-from matplotlib import font_manager
-
-# บังคับโหลดฟอนต์ภาษาไทยจากระบบ Windows โดยตรง (แก้ปัญหาภาษาไทยเป็นกล่องสี่เหลี่ยม 100%)
-thai_font_paths = [
-    r"C:\Windows\Fonts\tahoma.ttf",
-    r"C:\Windows\Fonts\leelawui.ttf",
-    r"C:\Windows\Fonts\THSarabunNew.ttf",
-    r"C:\Windows\Fonts\angsa.ttf",
-    r"C:\Windows\Fonts\cordia.ttf",
-]
-
-loaded_font_name = None
-for f_path in thai_font_paths:
-    if os.path.exists(f_path):
-        font_manager.fontManager.addfont(f_path)
-        prop = font_manager.FontProperties(fname=f_path)
-        loaded_font_name = prop.get_name()
-        break
-
-if loaded_font_name:
-    plt.rcParams['font.sans-serif'] = [loaded_font_name, 'Tahoma', 'Leelawadee UI', 'DejaVu Sans']
-else:
-    plt.rcParams['font.sans-serif'] = ['Tahoma', 'Leelawadee UI', 'Angsana New', 'Cordia New', 'DejaVu Sans']
-
+# ตั้งค่าฟอนต์มาตรฐานสากลสำหรับ Matplotlib (คมชัด 100% ไม่มีปัญหากล่องสี่เหลี่ยม)
 plt.rcParams['font.family'] = 'sans-serif'
+plt.rcParams['font.sans-serif'] = ['DejaVu Sans', 'Arial', 'Helvetica']
 plt.rcParams['axes.unicode_minus'] = False
 
 # =========================================================================
@@ -234,12 +210,10 @@ def smart_zero_reference_radial(t_val: float, b_val: float, l_val: float, r_val:
     1. แกนบน-ล่าง (T & B): ล็อกให้ Top = 0.00 เสมอตามมาตรฐานการเซ็ตเกจหน้างาน
     2. แกนซ้าย-ขวา (L & R): ตัดสินใจเลือกฝั่งที่มีค่าน้อยกว่าให้เป็น 0.00 ตามหลักหนังสือหน้า 20, 25
     """
-    # แกนบน-ล่าง: ล็อก Top = 0.00
     offset_tb = -t_val
     z_t = 0.00
     z_b = b_val + offset_tb
 
-    # แกนซ้าย-ขวา: เปรียบเทียบ L กับ R อัตโนมัติ
     if l_val < r_val:
         offset_lr = -l_val
         z_l = 0.00
@@ -338,17 +312,17 @@ def render_powerplant_schematic(choice_val: str):
 
 
 # =========================================================================
-# Drawing Functions (Matplotlib)
+# Drawing Functions (Matplotlib - Standard English Technical Labels)
 # =========================================================================
 def draw_dial_crosshair(ax, title_text, center_symbol, t_val, b_val, l_val, r_val, dial_color, badge_title, badge_desc, is_radial_raw=False):
-    """วาดไดอะแกรมเกจวัดกากบาท (+) ตรงกลาง"""
+    """Draw 4-point dial gauge crosshair (+) diagram in English"""
     ax.set_aspect('equal')
-    ax.set_xlim(-2.35, 2.35)
-    ax.set_ylim(-2.60, 2.40)
+    ax.set_xlim(-2.45, 2.45)
+    ax.set_ylim(-2.65, 2.45)
     ax.axis('off')
 
-    is_target = "TARGET" in title_text or "เป้าหมาย" in title_text or "Expected" in title_text
-    is_zero_ref = "เทียบศูนย์" in title_text
+    is_target = "TARGET" in title_text.upper() or "EXPECTED" in title_text.upper()
+    is_zero_ref = "ZERO-REFERENCED" in title_text.upper()
     if is_target:
         header_bg, header_bdr = "#E8F5E9", "#2E7D32"
     elif is_zero_ref:
@@ -356,7 +330,7 @@ def draw_dial_crosshair(ax, title_text, center_symbol, t_val, b_val, l_val, r_va
     else:
         header_bg, header_bdr = "#FFEBEE", "#C62828"
 
-    ax.text(0, 2.08, title_text, ha='center', va='center', fontsize=11, fontweight='bold', color=header_bdr,
+    ax.text(0, 2.10, title_text, ha='center', va='center', fontsize=10.5, fontweight='bold', color=header_bdr,
             bbox=dict(boxstyle='round,pad=0.42', facecolor=header_bg, edgecolor=header_bdr, lw=1.6))
 
     outer_ring = patches.Circle((0, 0), 0.88, edgecolor=dial_color, facecolor='#FAFAFA', linewidth=3.2, zorder=1)
@@ -377,7 +351,7 @@ def draw_dial_crosshair(ax, title_text, center_symbol, t_val, b_val, l_val, r_va
     ax.text(0, 0.0, center_symbol, ha='center', va='center', fontsize=18, fontweight='bold',
             color=dial_color, zorder=5)
 
-    sub_label = "หน่วย mm (จับ Gen จี้ LP)" if is_radial_raw else "แสดงผลต่าง mm"
+    sub_label = "Unit: mm (Gen on LP)" if is_radial_raw else "Diff: mm"
     ax.text(0, -0.48, sub_label, ha='center', va='center', fontsize=8, fontweight='bold',
             color='#78909C', zorder=3)
 
@@ -398,107 +372,121 @@ def draw_dial_crosshair(ax, title_text, center_symbol, t_val, b_val, l_val, r_va
     ax.text(1.08, 0, f"Right\n{r_str}", ha='left', va='center', fontsize=9.5, fontweight='bold')
 
     txt_box = f"{badge_title}\n[{badge_desc}]"
-    ax.text(0, -1.95, txt_box, ha='center', va='top', fontsize=9.5, fontweight='bold', color=header_bdr,
+    ax.text(0, -1.95, txt_box, ha='center', va='top', fontsize=9.2, fontweight='bold', color=header_bdr,
             bbox=dict(boxstyle='round,pad=0.42', facecolor=header_bg, edgecolor=header_bdr, lw=1.5))
 
 
 def draw_coupling_physical_setup(ax, choice: str):
-    """ไดอะแกรมแท่นติดตั้งเกจตามหลักการหนังสือ"""
+    """Draw exact EGAT Mae Moh LP-Gen Coupling Dial Gauge Setup (View from Gov. End)"""
     ax.set_aspect('equal')
-    ax.set_xlim(-1.8, 8.4)
-    ax.set_ylim(-3.6, 4.0)
+    ax.set_xlim(-2.2, 8.6)
+    ax.set_ylim(-3.8, 4.3)
     ax.axis('off')
 
-    lp_color = '#D84315' if choice in ['1', '2'] else '#1565C0'
-    ax.add_patch(patches.Rectangle((-1.0, -0.6), 2.4, 1.2, facecolor=lp_color, edgecolor='#BF360C', linewidth=2.5))
-    ax.add_patch(patches.Rectangle((1.4, -1.6), 0.8, 3.2, facecolor=lp_color, edgecolor='#BF360C', linewidth=2.5))
-    ax.text(0.2, 0.0, "LP", ha='center', va='center', color='white', fontsize=16, fontweight='bold')
+    # กรอบมาตรฐานแบบใบงาน EGAT (COUPLING ALIGNMENT - LP.-GEN. COUPLING)
+    ax.add_patch(patches.Rectangle((-1.8, -2.35), 10.0, 6.35, fill=False, edgecolor='#1E88E5', linewidth=1.6))
+    ax.text(3.2, 3.72, "LP. - GEN. COUPLING", ha='center', va='center', fontsize=12.5, fontweight='bold', color='#212121', family='serif')
+    ax.text(-1.55, -2.10, "VIEW FROM GOV. END", ha='left', va='center', fontsize=9.5, fontweight='bold', color='#212121', family='serif')
 
+    # ฝั่งซ้าย: GENERATOR | ฝั่งขวา: LP. TURBINE (ตามแบบฟอร์มหน้างานจริง)
     gen_color = '#1565C0' if choice == '1' else '#D84315'
-    ax.add_patch(patches.Rectangle((4.6, -0.6), 2.4, 1.2, facecolor=gen_color, edgecolor='#0D47A1', linewidth=2.5))
-    ax.add_patch(patches.Rectangle((3.8, -1.6), 0.8, 3.2, facecolor=gen_color, edgecolor='#0D47A1', linewidth=2.5))
-    ax.text(5.8, 0.0, "Gen", ha='center', va='center', color='white', fontsize=16, fontweight='bold')
+    lp_color = '#D84315' if choice in ['1', '2'] else '#1565C0'
 
-    bracket_color = '#37474F'
+    # เพลาและหน้าแปลนซ้าย: GENERATOR
+    ax.add_patch(patches.Rectangle((-0.2, -0.65), 2.3, 1.3, facecolor=gen_color, fill=True, alpha=0.18, edgecolor='#212121', linewidth=2.0))
+    ax.add_patch(patches.Rectangle((2.1, -1.55), 0.75, 3.1, facecolor=gen_color, fill=True, alpha=0.25, edgecolor='#212121', linewidth=2.2))
+    ax.text(0.85, 0.0, "GENERATOR", ha='center', va='center', color='#102027', fontsize=10.5, fontweight='bold', family='serif')
 
-    if choice == '1':
-        rim_x, rim_y, rim_r = 4.2, 2.2, 0.45
-        ax.plot([1.8, 1.8, rim_x, rim_x], [1.6, 3.1, 3.1, rim_y + rim_r], color=bracket_color, lw=2.5)
-        ax.add_patch(patches.Circle((rim_x, rim_y), rim_r, facecolor='#FF9800', edgecolor=bracket_color, lw=2.2))
-        ax.annotate("", xy=(rim_x, 1.6), xytext=(rim_x, rim_y - rim_r), arrowprops=dict(arrowstyle="->", color=bracket_color, lw=2.5))
-        ax.text(4.9, rim_y, "Rim (Radial)\n[จี้ขอบ Gen (Fixed หลัก)]", fontsize=9.5, fontweight='bold', color=bracket_color, va='center')
+    # เพลาและหน้าแปลนขวา: LP. TURBINE
+    ax.add_patch(patches.Rectangle((4.30, -0.65), 2.3, 1.3, facecolor=lp_color, fill=True, alpha=0.18, edgecolor='#212121', linewidth=2.0))
+    ax.add_patch(patches.Rectangle((3.55, -1.55), 0.75, 3.1, facecolor=lp_color, fill=True, alpha=0.25, edgecolor='#212121', linewidth=2.2))
+    ax.text(5.55, 0.0, "LP. TURBINE", ha='center', va='center', color='#102027', fontsize=10.5, fontweight='bold', family='serif')
 
-        ax.plot([2.2, 2.55], [0.55, 0.55], color=bracket_color, lw=2.5)
-        ax.add_patch(patches.Circle((3.0, 0.55), 0.45, facecolor='#FF9800', edgecolor=bracket_color, lw=2.2))
-        ax.annotate("", xy=(3.8, 0.55), xytext=(3.45, 0.55), arrowprops=dict(arrowstyle="->", color=bracket_color, lw=2.5))
-        ax.text(3.0, 1.18, "G1 (Top)", ha='center', va='bottom', fontsize=11, fontweight='bold', color=bracket_color)
+    # เส้นประ Centerline และลูกศรทิศทางการหมุน
+    ax.plot([-0.7, 7.1], [0, 0], color='#455A64', lw=1.1, linestyle='-.')
+    ax.annotate("", xy=(1.25, 0.80), xytext=(0.45, 0.80),
+                arrowprops=dict(arrowstyle="->", connectionstyle="arc3,rad=-0.55", color='#212121', lw=1.5))
+    ax.annotate("", xy=(5.95, 0.80), xytext=(5.15, 0.80),
+                arrowprops=dict(arrowstyle="->", connectionstyle="arc3,rad=-0.55", color='#212121', lw=1.5))
 
-        ax.plot([2.2, 2.55], [-0.85, -0.85], color=bracket_color, lw=2.5)
-        ax.add_patch(patches.Circle((3.0, -0.85), 0.45, facecolor='#FF9800', edgecolor=bracket_color, lw=2.2))
-        ax.annotate("", xy=(3.8, -0.85), xytext=(3.45, -0.85), arrowprops=dict(arrowstyle="->", color=bracket_color, lw=2.5))
-        ax.text(3.0, -1.48, "G2 (Bottom)", ha='center', va='top', fontsize=11, fontweight='bold', color=bracket_color)
+    b_col = '#212121'
+
+    if choice in ['2', '3']:
+        # แบบมาตรฐานหน้างานจริง: ยึดฐานที่ GENERATOR ข้ามไปจี้ LP. TURBINE
+        # 1. Rim Gauge (Radial)
+        ax.plot([2.475, 2.475, 3.925, 3.925], [1.55, 3.15, 3.15, 2.68], color=b_col, lw=1.8)
+        ax.add_patch(patches.Circle((3.925, 2.38), 0.30, facecolor='#FF9800', edgecolor=b_col, lw=1.8, zorder=4))
+        ax.text(3.925, 2.38, "R", ha='center', va='center', fontsize=9.5, fontweight='bold', color=b_col, zorder=5)
+        ax.annotate("", xy=(3.925, 1.55), xytext=(3.925, 2.08), arrowprops=dict(arrowstyle="->", color=b_col, lw=1.8))
+        ax.text(3.20, 3.25, "Radial (Rim)", ha='center', va='bottom', fontsize=8.8, fontweight='bold', color='#1565C0')
+
+        # 2. Axial G1 (Top)
+        ax.plot([2.65, 2.65, 5.15, 5.15, 4.92], [1.55, 3.32, 3.32, 1.32, 1.32], color=b_col, lw=1.8)
+        ax.add_patch(patches.Circle((4.62, 1.32), 0.30, facecolor='#FF9800', edgecolor=b_col, lw=1.8, zorder=4))
+        ax.text(4.62, 1.32, "G1", ha='center', va='center', fontsize=8.8, fontweight='bold', color=b_col, zorder=5)
+        ax.annotate("", xy=(4.30, 1.32), xytext=(4.32, 1.32), arrowprops=dict(arrowstyle="->", color=b_col, lw=1.8))
+        ax.text(5.28, 1.32, "G1 (Top Axial)", ha='left', va='center', fontsize=8.8, fontweight='bold', color='#D84315')
+
+        # 3. Axial G2 (Bottom)
+        ax.plot([2.475, 2.475, 5.15, 5.15, 4.92], [-1.55, -2.02, -2.02, -1.32, -1.32], color=b_col, lw=1.8)
+        ax.add_patch(patches.Circle((4.62, -1.32), 0.30, facecolor='#FF9800', edgecolor=b_col, lw=1.8, zorder=4))
+        ax.text(4.62, -1.32, "G2", ha='center', va='center', fontsize=8.8, fontweight='bold', color=b_col, zorder=5)
+        ax.annotate("", xy=(4.30, -1.32), xytext=(4.32, -1.32), arrowprops=dict(arrowstyle="->", color=b_col, lw=1.8))
+        ax.text(5.28, -1.32, "G2 (Bot Axial)", ha='left', va='center', fontsize=8.8, fontweight='bold', color='#D84315')
+
+        if choice == '2':
+            status_txt = (
+                "[SOLUTION 2: Shared 50:50 Adjustment (LP Brg.4 + Gen Brg.5 & 6)]\n"
+                "* Standard Field Bridge Setup: Mounted on GENERATOR probing LP. TURBINE (Rim, G1, G2).\n"
+                "* Shim corrections split 50:50 between LP Brg.4 and Gen Brg.5 & 6."
+            )
+            bg_col, bdr_col = "#FFFDE7", "#F57F17"
+        else:
+            status_txt = (
+                "[SOLUTION 3: Adjust Gen Bearing 5 & 6 Only (LP. TURBINE FIXED 100%)]\n"
+                "* Standard Field Bridge Setup: Mounted on GENERATOR probing LP. TURBINE (Fixed Reference).\n"
+                "* All shim adjustments performed on Generator Brg.5 & 6."
+            )
+            bg_col, bdr_col = "#FFEBEE", "#C62828"
+
+    else:
+        # Solution 1: ยึดฐานที่ LP. TURBINE ข้ามไปจี้ GENERATOR (ตามหลักหนังสือเมื่อ Gen Fixed)
+        # 1. Rim Gauge (Radial)
+        ax.plot([3.925, 3.925, 2.475, 2.475], [1.55, 3.15, 3.15, 2.68], color=b_col, lw=1.8)
+        ax.add_patch(patches.Circle((2.475, 2.38), 0.30, facecolor='#FF9800', edgecolor=b_col, lw=1.8, zorder=4))
+        ax.text(2.475, 2.38, "R", ha='center', va='center', fontsize=9.5, fontweight='bold', color=b_col, zorder=5)
+        ax.annotate("", xy=(2.475, 1.55), xytext=(2.475, 2.08), arrowprops=dict(arrowstyle="->", color=b_col, lw=1.8))
+        ax.text(3.20, 3.25, "Radial (Rim)", ha='center', va='bottom', fontsize=8.8, fontweight='bold', color='#1565C0')
+
+        # 2. Axial G1 (Top)
+        ax.plot([3.75, 3.75, 1.25, 1.25, 1.48], [1.55, 3.32, 3.32, 1.32, 1.32], color=b_col, lw=1.8)
+        ax.add_patch(patches.Circle((1.78, 1.32), 0.30, facecolor='#FF9800', edgecolor=b_col, lw=1.8, zorder=4))
+        ax.text(1.78, 1.32, "G1", ha='center', va='center', fontsize=8.8, fontweight='bold', color=b_col, zorder=5)
+        ax.annotate("", xy=(2.10, 1.32), xytext=(2.08, 1.32), arrowprops=dict(arrowstyle="->", color=b_col, lw=1.8))
+        ax.text(1.12, 1.32, "G1 (Top Axial)", ha='right', va='center', fontsize=8.8, fontweight='bold', color='#D84315')
+
+        # 3. Axial G2 (Bottom)
+        ax.plot([3.925, 3.925, 1.25, 1.25, 1.48], [-1.55, -2.02, -2.02, -1.32, -1.32], color=b_col, lw=1.8)
+        ax.add_patch(patches.Circle((1.78, -1.32), 0.30, facecolor='#FF9800', edgecolor=b_col, lw=1.8, zorder=4))
+        ax.text(1.78, -1.32, "G2", ha='center', va='center', fontsize=8.8, fontweight='bold', color=b_col, zorder=5)
+        ax.annotate("", xy=(2.10, -1.32), xytext=(2.08, -1.32), arrowprops=dict(arrowstyle="->", color=b_col, lw=1.8))
+        ax.text(1.12, -1.32, "G2 (Bot Axial)", ha='right', va='center', fontsize=8.8, fontweight='bold', color='#D84315')
 
         status_txt = (
-            "[SOLUTION 1: ปรับเฉพาะ LP Bearing 4 (ยึด Gen คงที่ 100%)]\n"
-            "* ตามหลักหนังสือ: ยึดฐานเกจที่ LP แล้วจี้ไปที่ Gen (เพลาที่ถูกจี้คือเพลาหลัก)\n"
-            "* หมายเหตุ: กรอกค่าที่วัดจากการจับ Gen จี้ LP ตามตารางได้โดยตรง"
+            "[SOLUTION 1: Adjust LP Bearing 4 Only (GENERATOR FIXED 100%)]\n"
+            "* Manual Equivalent Setup: Probing GENERATOR flange as fixed reference.\n"
+            "* Field Note: You may still input Gen-to-LP readings; software auto-inverts signs."
         )
         bg_col, bdr_col = "#E8F5E9", "#2E7D32"
-    elif choice == '2':
-        rim_x, rim_y, rim_r = 1.8, 2.2, 0.45
-        ax.plot([4.2, 4.2, rim_x, rim_x], [1.6, 3.1, 3.1, rim_y + rim_r], color=bracket_color, lw=2.5)
-        ax.add_patch(patches.Circle((rim_x, rim_y), rim_r, facecolor='#FF9800', edgecolor=bracket_color, lw=2.2))
-        ax.annotate("", xy=(rim_x, 1.6), xytext=(rim_x, rim_y - rim_r), arrowprops=dict(arrowstyle="->", color=bracket_color, lw=2.5))
-        ax.text(1.1, rim_y, "Rim (Radial)\n[จี้ขอบ LP (ตามตาราง)]", fontsize=9.5, fontweight='bold', color=bracket_color, va='center', ha='right')
 
-        ax.plot([3.8, 3.45], [0.55, 0.55], color=bracket_color, lw=2.5)
-        ax.add_patch(patches.Circle((3.0, 0.55), 0.45, facecolor='#FF9800', edgecolor=bracket_color, lw=2.2))
-        ax.annotate("", xy=(2.2, 0.55), xytext=(2.55, 0.55), arrowprops=dict(arrowstyle="->", color=bracket_color, lw=2.5))
-        ax.text(3.0, 1.18, "G1 (Top)", ha='center', va='bottom', fontsize=11, fontweight='bold', color=bracket_color)
-
-        ax.plot([3.8, 3.45], [-0.85, -0.85], color=bracket_color, lw=2.5)
-        ax.add_patch(patches.Circle((3.0, -0.85), 0.45, facecolor='#FF9800', edgecolor=bracket_color, lw=2.2))
-        ax.annotate("", xy=(2.2, -0.85), xytext=(2.55, -0.85), arrowprops=dict(arrowstyle="->", color=bracket_color, lw=2.5))
-        ax.text(3.0, -1.48, "G2 (Bottom)", ha='center', va='top', fontsize=11, fontweight='bold', color=bracket_color)
-
-        status_txt = (
-            "[SOLUTION 2: แบ่งสัดส่วนปรับร่วมกัน 50:50 (LP Brg.4 + Gen Brg.5, 6)]\n"
-            "* ยึดฐานเกจที่ Gen จี้ LP ตามมาตรฐานใบงานจริง\n"
-            "* ปรับ Shim ร่วมกันที่ LP Brg.4 (50%) และ Gen Brg.5, Brg.6 (50%)"
-        )
-        bg_col, bdr_col = "#FFFDE7", "#F57F17"
-    else:
-        rim_x, rim_y, rim_r = 1.8, 2.2, 0.45
-        ax.plot([4.2, 4.2, rim_x, rim_x], [1.6, 3.1, 3.1, rim_y + rim_r], color=bracket_color, lw=2.5)
-        ax.add_patch(patches.Circle((rim_x, rim_y), rim_r, facecolor='#FF9800', edgecolor=bracket_color, lw=2.2))
-        ax.annotate("", xy=(rim_x, 1.6), xytext=(rim_x, rim_y - rim_r), arrowprops=dict(arrowstyle="->", color=bracket_color, lw=2.5))
-        ax.text(1.1, rim_y, "Rim (Radial)\n[จี้ขอบ LP (Fixed หลัก)]", fontsize=9.5, fontweight='bold', color=bracket_color, va='center', ha='right')
-
-        ax.plot([3.8, 3.45], [0.55, 0.55], color=bracket_color, lw=2.5)
-        ax.add_patch(patches.Circle((3.0, 0.55), 0.45, facecolor='#FF9800', edgecolor=bracket_color, lw=2.2))
-        ax.annotate("", xy=(2.2, 0.55), xytext=(2.55, 0.55), arrowprops=dict(arrowstyle="->", color=bracket_color, lw=2.5))
-        ax.text(3.0, 1.18, "G1 (Top)", ha='center', va='bottom', fontsize=11, fontweight='bold', color=bracket_color)
-
-        ax.plot([3.8, 3.45], [-0.85, -0.85], color=bracket_color, lw=2.5)
-        ax.add_patch(patches.Circle((3.0, -0.85), 0.45, facecolor='#FF9800', edgecolor=bracket_color, lw=2.2))
-        ax.annotate("", xy=(2.2, -0.85), xytext=(2.55, -0.85), arrowprops=dict(arrowstyle="->", color=bracket_color, lw=2.5))
-        ax.text(3.0, -1.48, "G2 (Bottom)", ha='center', va='top', fontsize=11, fontweight='bold', color=bracket_color)
-
-        status_txt = (
-            "[SOLUTION 3: ปรับเฉพาะ Gen Bearing 5 & 6 (ยึด LP คงที่ 100%)]\n"
-            "* ตามหลักหนังสือ & ใบงานจริง: ยึดฐานเกจที่ Gen จี้ LP (LP เป็นฐานอ้างอิงคงที่)\n"
-            "* ปรับแก้เฉพาะที่ Gen Brg.5 และ Brg.6 เพื่อไม่ให้กระทบแนวเพลา IP และ HP ด้านหน้า"
-        )
-        bg_col, bdr_col = "#FFEBEE", "#C62828"
-
-    ax.text(3.0, -2.65, status_txt, ha='center', va='center', fontsize=10.2, fontweight='bold',
-            bbox=dict(boxstyle='round,pad=0.55', facecolor=bg_col, edgecolor=bdr_col, lw=1.8))
+    ax.text(3.2, -3.05, status_txt, ha='center', va='center', fontsize=9.2, fontweight='bold',
+            bbox=dict(boxstyle='round,pad=0.52', facecolor=bg_col, edgecolor=bdr_col, lw=1.8))
 
 
 def draw_perpendicular_manual_diagram(ax, title, pos_lbl, neg_lbl, choice_val,
                                       ax_open_mm, open_at_neg, rad_gen_high_mm,
                                       l_b4, lp_action_txt, gen_action_list, sub_note):
-    """วาดไดอะแกรมเพลาและหน้าแปลนแบบตั้งฉาก 90 องศาจริง (aspect='equal')"""
+    """Draw 90-degree perpendicular shaft & flange geometry diagram"""
     ax.set_aspect('equal')
     ax.axis('off')
 
@@ -528,7 +516,7 @@ def draw_perpendicular_manual_diagram(ax, title, pos_lbl, neg_lbl, choice_val,
     lp_tilt = base_tilt * ratio_lp
     gen_tilt = -base_tilt * ratio_gen
 
-    # ฝั่งซ้าย: TURBINE (LP) - LP Brg.4
+    # Left side: TURBINE (LP) - LP Brg.4
     lp_cx = -0.45
     lp_top_x, lp_top_y = lp_cx + lp_tilt, lp_vis_off + flange_half_h
     lp_bot_x, lp_bot_y = lp_cx - lp_tilt, lp_vis_off - flange_half_h
@@ -561,7 +549,7 @@ def draw_perpendicular_manual_diagram(ax, title, pos_lbl, neg_lbl, choice_val,
             bbox=dict(boxstyle='round,pad=0.25', facecolor='#ECEFF1' if ratio_lp == 0 else '#E8F5E9',
                       edgecolor='#78909C' if ratio_lp == 0 else '#2E7D32', lw=1.1))
 
-    # ฝั่งขวา: GENERATOR - Gen Brg.5 & Brg.6
+    # Right side: GENERATOR - Gen Brg.5 & Brg.6
     gen_cx = 0.65
     gen_top_x, gen_top_y = gen_cx + gen_tilt, gen_vis_off + flange_half_h
     gen_bot_x, gen_bot_y = gen_cx - gen_tilt, gen_vis_off - flange_half_h
@@ -598,7 +586,7 @@ def draw_perpendicular_manual_diagram(ax, title, pos_lbl, neg_lbl, choice_val,
                 bbox=dict(boxstyle='round,pad=0.25', facecolor='#ECEFF1' if ratio_gen == 0 else '#FFEBEE',
                           edgecolor='#78909C' if ratio_gen == 0 else '#C62828', lw=1.1))
 
-    # เส้นบอกขนาด AXIAL
+    # Axial dimension line
     dim_y = max(lp_top_y, gen_top_y) + 0.42
     ax.plot([lp_top_x, lp_top_x], [lp_top_y, dim_y + 0.12], color='black', linewidth=1.0)
     ax.plot([gen_top_x, gen_top_x], [gen_top_y, dim_y + 0.12], color='black', linewidth=1.0)
@@ -608,7 +596,7 @@ def draw_perpendicular_manual_diagram(ax, title, pos_lbl, neg_lbl, choice_val,
     ax.text((lp_top_x + gen_top_x) / 2, dim_y + 0.10, f"Axial Gap = {abs(ax_open_mm):.3f} mm",
             ha='center', va='bottom', fontsize=9.2, fontweight='bold', color='#8E24AA')
 
-    # เส้นบอกขนาด RADIAL
+    # Radial dimension line
     dim_x = 0.08
     ax.plot([lp_cx, dim_x + 0.12], [lp_vis_off, lp_vis_off], color='black', linewidth=1.0)
     ax.plot([dim_x - 0.12, gen_cx], [gen_vis_off, gen_vis_off], color='black', linewidth=1.0)
@@ -648,7 +636,7 @@ st.markdown("""
 col_input, col_view = st.columns([1.15, 1.85], gap="large")
 
 # =========================================================================
-# Left Panel: ใบกรอกข้อมูลหน้างาน (Zero-Click UI — ตัดปุ่มเลือกซับซ้อนออก)
+# Left Panel: ใบกรอกข้อมูลหน้างาน (Zero-Click UI)
 # =========================================================================
 with col_input:
     st.markdown("### 📝 1. เลือกวิธีปรับตั้ง & ป้อนค่าหน้างาน")
@@ -966,7 +954,7 @@ with col_view:
         bars = ax_bar.bar(labels, shims, color=colors, width=0.35, edgecolor='black', zorder=3)
         ax_bar.axhline(0, color='black', linewidth=1.2)
         ax_bar.set_ylabel("Vertical Shim (mm)", fontsize=10, fontweight='bold')
-        ax_bar.set_title(f"3. Summary of Vertical Shim Addition/Removal at the Bearing [SOLUTION {choice_val}]", fontsize=11.5, fontweight='bold', pad=10)
+        ax_bar.set_title(f"3. Vertical Shim Adjustment Summary at Bearings [SOLUTION {choice_val}]", fontsize=11.5, fontweight='bold', pad=10)
         ax_bar.grid(axis='y', linestyle=':', alpha=0.6)
 
         max_val = max(abs(s) for s in shims) if any(abs(s) > 0 for s in shims) else 0.05
@@ -976,7 +964,7 @@ with col_view:
             h = bar.get_height()
             va_align = 'bottom' if h >= 0 else 'top'
             y_pos = h + (0.015 if h >= 0 else -0.015)
-            action_word = "Add Shim (+)" if s_val > 0 else ("Remove Shim (-)" if s_val < 0 else "FIXED")
+            action_word = "ADD SHIM (+)" if s_val > 0 else ("REMOVE SHIM (-)" if s_val < 0 else "FIXED")
             ax_bar.text(bar.get_x() + bar.get_width() / 2., y_pos, f"{s_val:+.3f} mm\n({action_word})",
                         ha='center', va=va_align, fontsize=9.5, fontweight='bold')
 
@@ -1008,36 +996,36 @@ with col_view:
         fig1 = plt.figure(figsize=(15, 11.2))
 
         ax1 = fig1.add_subplot(2, 2, 1)
-        face_desc_th = "หน้าแปลนล่างอ้า (Bottom OPEN)" if delta_x_v > 0 else ("หน้าแปลนบนอ้า (Top OPEN)" if delta_x_v < 0 else "ขนานพอดี")
+        face_desc_en = "Bottom Flange OPEN" if delta_x_v > 0 else ("Top Flange OPEN" if delta_x_v < 0 else "Flanges Parallel")
         draw_dial_crosshair(
-            ax1, "[1] ค่า Axial ที่ป้อนจากตาราง (G1-G2)/2", "A",
+            ax1, "[1] Raw Axial Input (G1 - G2) / 2", "A",
             raw_a_top, raw_a_bottom, raw_a_left, raw_a_right, '#C62828',
-            f"ผลต่างบน-ล่าง = {delta_x_v:+.3f} mm", face_desc_th, is_radial_raw=False
+            f"Vertical Gap (B - T) = {delta_x_v:+.3f} mm", face_desc_en, is_radial_raw=False
         )
 
         ax2 = fig1.add_subplot(2, 2, 2)
-        rim_desc_th = f"Gen สูงกว่า LP {abs(gen_above_lp_mm):.3f} mm" if gen_above_lp_mm >= 0 else f"Gen ต่ำกว่า LP {abs(gen_above_lp_mm):.3f} mm"
+        rim_desc_en = f"Gen HIGHER than LP by {abs(gen_above_lp_mm):.3f} mm" if gen_above_lp_mm >= 0 else f"Gen LOWER than LP by {abs(gen_above_lp_mm):.3f} mm"
         draw_dial_crosshair(
-            ax2, "[2] ค่า Radial ที่ป้อนจาก Dial Gauge", "R",
+            ax2, "[2] Raw Radial Input (Dial Gauge)", "R",
             r_top, r_bottom, r_left, r_right, '#C62828',
-            f"เยื้องศูนย์จริงแนวดิ่ง = {abs(gen_above_lp_mm):.3f} mm", rim_desc_th, is_radial_raw=True
+            f"Vertical Offset = {abs(gen_above_lp_mm):.3f} mm", rim_desc_en, is_radial_raw=True
         )
 
         ax3 = fig1.add_subplot(2, 2, 3)
         draw_dial_crosshair(
-            ax3, "[3] Axial เทียบศูนย์ (ด้านชิด = 0.000)", "A",
+            ax3, "[3] Zero-Referenced Axial (Closed = 0.000)", "A",
             zero_a_top, zero_a_bot, zero_a_left, zero_a_right, '#1565C0',
-            f"อ้าแนวดิ่ง {abs(delta_x_v):.3f} mm | แนวนอน {abs(delta_gap_lr):.3f} mm",
-            "โปรแกรมปรับฝั่งชิดเป็น 0.000 mm อัตโนมัติ", is_radial_raw=False
+            f"V-Gap = {abs(delta_x_v):.3f} mm | H-Gap = {abs(delta_gap_lr):.3f} mm",
+            "Auto-Normalized: Closed Side Set to 0.000 mm", is_radial_raw=False
         )
 
         ax4 = fig1.add_subplot(2, 2, 4)
-        lr_zero_note = f"L={zero_r_left:+.2f}, R={zero_r_right:+.2f} mm (ฝั่งน้อย=0)"
+        lr_zero_note_en = f"L={zero_r_left:+.2f}, R={zero_r_right:+.2f} mm (Min Side = 0)"
         draw_dial_crosshair(
-            ax4, "[4] Radial TIR เทียบศูนย์ (Top=0 & ฝั่งน้อย=0)", "R",
+            ax4, "[4] Zero-Referenced Radial TIR (Top=0 & Min=0)", "R",
             zero_r_top, zero_r_bot, zero_r_left, zero_r_right, '#1565C0',
-            f"แนวดิ่ง: T=0.00, B={zero_r_bot:+.2f} mm",
-            lr_zero_note, is_radial_raw=True
+            f"Vertical TIR: T=0.00, B={zero_r_bot:+.2f} mm",
+            lr_zero_note_en, is_radial_raw=True
         )
 
         plt.subplots_adjust(top=0.94, bottom=0.06, hspace=0.38, wspace=0.25)
@@ -1055,16 +1043,16 @@ with col_view:
 
         ax_exp_face = fig3.add_subplot(2, 2, 3)
         draw_dial_crosshair(
-            ax_exp_face, "เกจวัดจำลองแนวแกน (Expected Face)", "A",
+            ax_exp_face, "Expected Face Gauge (Target Axial)", "A",
             0.000, TARGET_AXIAL_GAP_MM, 0.000, 0.000, '#2E7D32',
-            f"Strategy: Solution {choice_val}", f"เป้าหมาย Gap = {TARGET_AXIAL_GAP_MM:+.3f} mm", is_radial_raw=False
+            f"Strategy: Solution {choice_val}", f"Target Axial Gap = {TARGET_AXIAL_GAP_MM:+.3f} mm", is_radial_raw=False
         )
 
         ax_exp_rim = fig3.add_subplot(2, 2, 4)
         draw_dial_crosshair(
-            ax_exp_rim, "เกจวัดจำลองแนวรัศมี (Expected Rim - จับ Gen จี้ LP)", "R",
+            ax_exp_rim, "Expected Rim Gauge (Target Radial - Gen on LP)", "R",
             0.00, target_radial_bottom_mm, target_radial_side_mm, target_radial_side_mm, '#2E7D32',
-            f"Target: Gen down {TARGET_GEN_DOWN_MM:.3f} mm", f"ค่าเป้าหมายด้านล่าง = {target_radial_bottom_mm:+.2f} mm", is_radial_raw=True
+            f"Target: Gen down {TARGET_GEN_DOWN_MM:.3f} mm", f"Expected Bottom Reading = {target_radial_bottom_mm:+.2f} mm", is_radial_raw=True
         )
 
         plt.subplots_adjust(top=0.95, bottom=0.08, hspace=0.38, wspace=0.25)
