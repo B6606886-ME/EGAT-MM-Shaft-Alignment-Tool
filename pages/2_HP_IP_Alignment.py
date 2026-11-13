@@ -11,12 +11,12 @@ import matplotlib.patches as patches
 import numpy as np
 import streamlit as st
 
-# ตั้งค่าระบบแสดงผล
-initial_sidebar_state="expanded"(
+# ตั้งค่าระบบแสดงผล (เปิดแถบ Sidebar อัตโนมัติเพื่อให้สลับหน้าได้สะดวก)
+st.set_page_config(
     page_title="EGAT Mae Moh 8-13 | HP-IP Alignment",
     page_icon="⚡",
     layout="wide",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="expanded"
 )
 
 plt.rcParams['font.family'] = 'sans-serif'
@@ -571,8 +571,8 @@ def draw_manual_book_diagram(ax, title, pos_lbl, neg_lbl,
 st.markdown("""
 <div class="pp-header">
     <div>
-        <div class="pp-header-title">⚡ ระบบคำนวณตั้งศูนย์เพลา HP – IP COUPLING (IP–LP–GEN Fixed)</div>
-        <div class="pp-header-sub">แผนกบำรุงรักษากังหัน (หปกร-ธ.) โรงไฟฟ้าแม่เมาะ MMT08-13 </div>
+        <div class="pp-header-title">⚡ ระบบคำนวณตั้งศูนย์เพลา HP – IP COUPLING (กรณี IP–LP–GEN เสร็จแล้ว)</div>
+        <div class="pp-header-sub">หลักการคำนวณอิงตามคู่มือ "Alignment &amp; Eccentricity" (นายสมเกียรติ สมหล่อ - กฟผ.) 100%</div>
     </div>
     <div class="pp-badge">EGAT MANUAL STANDARD</div>
 </div>
