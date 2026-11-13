@@ -12,7 +12,7 @@ import numpy as np
 import streamlit as st
 
 # ตั้งค่าระบบแสดงผล
-st.set_page_config(
+initial_sidebar_state="expanded"(
     page_title="EGAT Mae Moh 8-13 | HP-IP Alignment",
     page_icon="⚡",
     layout="wide",
