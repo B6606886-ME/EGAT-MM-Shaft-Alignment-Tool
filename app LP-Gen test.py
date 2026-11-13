@@ -1,5 +1,5 @@
 """
-Streamlit Web Application: LP-Generator Coupling Alignment Precision Tool (Smart TIR Edition)
+Streamlit Web Application: LP-Generator Coupling Alignment Precision Tool
 Standard: EGAT Mae Moh Power Plant Unit 8-13 (หปกร-ธ.)
 Reference: Alignment & Eccentricity Manual (นายสมเกียรติ สมหล่อ - กฟผ.)
 """
@@ -17,7 +17,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# ตั้งค่าฟอนต์มาตรฐานสากลสำหรับ Matplotlib (คมชัด 100% ไม่มีปัญหากล่องสี่เหลี่ยม)
+# ตั้งค่าฟอนต์มาตรฐานสากลสำหรับ Matplotlib
 plt.rcParams['font.family'] = 'sans-serif'
 plt.rcParams['font.sans-serif'] = ['DejaVu Sans', 'Arial', 'Helvetica']
 plt.rcParams['axes.unicode_minus'] = False
@@ -185,7 +185,7 @@ TARGET_AXIAL_GAP_MM = 0.000       # Target Face Gap (mm)
 TOLERANCE_RADIAL_MM = 0.030       # เกณฑ์ความคลาดเคลื่อนผลต่าง Radial ไม่เกิน 0.03 mm (3 ขีด)
 
 # =========================================================================
-# Session State Initialization (เริ่มต้นเป็น None ทั้งหมด ให้ User ป้อนค่าเอง)
+# Session State Initialization
 # =========================================================================
 input_keys = [
     'd_coupling', 'l_brg4', 'l_brg5', 'l_brg6',
@@ -202,66 +202,26 @@ for key in input_keys:
 
 
 # =========================================================================
-# Smart TIR Decision Engine (อัลกอริทึมตัดสินใจแปลงค่าเทียบศูนย์อัตโนมัติ)
+# Zero-Reference Conversion (ตามหนังสือ: ทำให้ด้านที่น้อยกว่าเป็น 0 ทั้งสองแกน)
 # =========================================================================
-def smart_zero_reference_radial(t_val: float, b_val: float, l_val: float, r_val: float):
-    """
-    ระบบตัดสินใจแปลงค่า Radial TIR เทียบศูนย์อัตโนมัติ:
-    1. แกนบน-ล่าง (T & B): ล็อกให้ Top = 0.00 เสมอตามมาตรฐานการเซ็ตเกจหน้างาน
-    2. แกนซ้าย-ขวา (L & R): ตัดสินใจเลือกฝั่งที่มีค่าน้อยกว่าให้เป็น 0.00 ตามหลักหนังสือหน้า 20, 25
-    """
-    offset_tb = -t_val
-    z_t = 0.00
-    z_b = b_val + offset_tb
-
-    if l_val < r_val:
-        offset_lr = -l_val
-        z_l = 0.00
-        z_r = r_val + offset_lr
-        lr_decision_th = (
-            f"โปรแกรมตรวจพบว่าฝั่ง **Left ({l_val:+.2f} mm)** มีค่าน้อยกว่า Right ({r_val:+.2f} mm) "
-            f"จึงเลือกให้ **Left = 0.00** โดยนำ **({offset_lr:+.2f})** บวกเข้าทั้งซ้ายและขวา → ได้ **L = 0.00, R = {z_r:+.2f} mm**"
-        )
-    elif r_val < l_val:
-        offset_lr = -r_val
-        z_l = l_val + offset_lr
-        z_r = 0.00
-        lr_decision_th = (
-            f"โปรแกรมตรวจพบว่าฝั่ง **Right ({r_val:+.2f} mm)** มีค่าน้อยกว่า Left ({l_val:+.2f} mm) "
-            f"จึงเลือกให้ **Right = 0.00** โดยนำ **({offset_lr:+.2f})** บวกเข้าทั้งซ้ายและขวา → ได้ **L = {z_l:+.2f}, R = 0.00 mm**"
-        )
-    else:
-        offset_lr = -l_val
-        z_l = 0.00
-        z_r = 0.00
-        lr_decision_th = (
-            f"โปรแกรมตรวจพบว่าฝั่ง **Left และ Right เท่ากัน ({l_val:+.2f} mm)** "
-            f"จึงปรับให้ **L = 0.00, R = 0.00 mm** (เพลาตรงศูนย์แนวนอน)"
-        )
-
-    return z_t, z_b, z_l, z_r, offset_tb, offset_lr, lr_decision_th
-
-
-def smart_zero_reference_axial(t_val: float, b_val: float, l_val: float, r_val: float):
-    """
-    แปลงค่า Axial (G1-G2)/2 เป็นค่าเปิดอ้าสัมพัทธ์เทียบ 0 (ด้านชิดเป็น 0, ด้านเปิดอ้าเป็นบวก +)
-    """
+def convert_tir_to_zero_ref(t_val: float, b_val: float, l_val: float, r_val: float):
     min_tb = min(t_val, b_val)
-    z_t = t_val - min_tb
-    z_b = b_val - min_tb
+    off_tb = -min_tb
+    z_t = t_val + off_tb
+    z_b = b_val + off_tb
 
     min_lr = min(l_val, r_val)
-    z_l = l_val - min_lr
-    z_r = r_val - min_lr
+    off_lr = -min_lr
+    z_l = l_val + off_lr
+    z_r = r_val + off_lr
 
-    return z_t, z_b, z_l, z_r
+    return z_t, z_b, z_l, z_r, off_tb, off_lr
 
 
 # =========================================================================
 # Power Plant Turbine-Generator Schematic (SVG Banner)
 # =========================================================================
 def render_powerplant_schematic(choice_val: str):
-    """วาดรูปหน้าตัด LP Turbine & Generator สไตล์โรงไฟฟ้าแม่เมาะ คมชัด ไม่ทับซ้อน"""
     lp_fill = "#1565C0" if choice_val == '3' else "#E65100"
     lp_badge = "🔒 LOCKED (100%)" if choice_val == '3' else ("🔧 ปรับแก้ 100%" if choice_val == '1' else "🔧 ปรับร่วม 50%")
 
@@ -312,10 +272,9 @@ def render_powerplant_schematic(choice_val: str):
 
 
 # =========================================================================
-# Drawing Functions (Matplotlib - Standard English Technical Labels)
+# Drawing Functions (Matplotlib)
 # =========================================================================
 def draw_dial_crosshair(ax, title_text, center_symbol, t_val, b_val, l_val, r_val, dial_color, badge_title, badge_desc, is_radial_raw=False):
-    """Draw 4-point dial gauge crosshair (+) diagram in English"""
     ax.set_aspect('equal')
     ax.set_xlim(-2.45, 2.45)
     ax.set_ylim(-2.65, 2.45)
@@ -383,26 +342,23 @@ def draw_coupling_physical_setup(ax, choice: str):
     ax.set_ylim(-3.8, 4.3)
     ax.axis('off')
 
-    # กรอบมาตรฐานแบบใบงาน EGAT (COUPLING ALIGNMENT - LP.-GEN. COUPLING)
     ax.add_patch(patches.Rectangle((-1.8, -2.35), 10.0, 6.35, fill=False, edgecolor='#1E88E5', linewidth=1.6))
     ax.text(3.2, 3.72, "LP. - GEN. COUPLING", ha='center', va='center', fontsize=12.5, fontweight='bold', color='#212121', family='serif')
     ax.text(-1.55, -2.10, "VIEW FROM GOV. END", ha='left', va='center', fontsize=9.5, fontweight='bold', color='#212121', family='serif')
 
-    # ฝั่งซ้าย: GENERATOR | ฝั่งขวา: LP. TURBINE (ตามแบบฟอร์มหน้างานจริง)
     gen_color = '#1565C0' if choice == '1' else '#D84315'
     lp_color = '#D84315' if choice in ['1', '2'] else '#1565C0'
 
-    # เพลาและหน้าแปลนซ้าย: GENERATOR
+    # Left: GENERATOR
     ax.add_patch(patches.Rectangle((-0.2, -0.65), 2.3, 1.3, facecolor=gen_color, fill=True, alpha=0.18, edgecolor='#212121', linewidth=2.0))
     ax.add_patch(patches.Rectangle((2.1, -1.55), 0.75, 3.1, facecolor=gen_color, fill=True, alpha=0.25, edgecolor='#212121', linewidth=2.2))
     ax.text(0.85, 0.0, "GENERATOR", ha='center', va='center', color='#102027', fontsize=10.5, fontweight='bold', family='serif')
 
-    # เพลาและหน้าแปลนขวา: LP. TURBINE
+    # Right: LP. TURBINE
     ax.add_patch(patches.Rectangle((4.30, -0.65), 2.3, 1.3, facecolor=lp_color, fill=True, alpha=0.18, edgecolor='#212121', linewidth=2.0))
     ax.add_patch(patches.Rectangle((3.55, -1.55), 0.75, 3.1, facecolor=lp_color, fill=True, alpha=0.25, edgecolor='#212121', linewidth=2.2))
     ax.text(5.55, 0.0, "LP. TURBINE", ha='center', va='center', color='#102027', fontsize=10.5, fontweight='bold', family='serif')
 
-    # เส้นประ Centerline และลูกศรทิศทางการหมุน
     ax.plot([-0.7, 7.1], [0, 0], color='#455A64', lw=1.1, linestyle='-.')
     ax.annotate("", xy=(1.25, 0.80), xytext=(0.45, 0.80),
                 arrowprops=dict(arrowstyle="->", connectionstyle="arc3,rad=-0.55", color='#212121', lw=1.5))
@@ -412,22 +368,18 @@ def draw_coupling_physical_setup(ax, choice: str):
     b_col = '#212121'
 
     if choice in ['2', '3']:
-        # แบบมาตรฐานหน้างานจริง: ยึดฐานที่ GENERATOR ข้ามไปจี้ LP. TURBINE
-        # 1. Rim Gauge (Radial)
         ax.plot([2.475, 2.475, 3.925, 3.925], [1.55, 3.15, 3.15, 2.68], color=b_col, lw=1.8)
         ax.add_patch(patches.Circle((3.925, 2.38), 0.30, facecolor='#FF9800', edgecolor=b_col, lw=1.8, zorder=4))
         ax.text(3.925, 2.38, "R", ha='center', va='center', fontsize=9.5, fontweight='bold', color=b_col, zorder=5)
         ax.annotate("", xy=(3.925, 1.55), xytext=(3.925, 2.08), arrowprops=dict(arrowstyle="->", color=b_col, lw=1.8))
         ax.text(3.20, 3.25, "Radial (Rim)", ha='center', va='bottom', fontsize=8.8, fontweight='bold', color='#1565C0')
 
-        # 2. Axial G1 (Top)
         ax.plot([2.65, 2.65, 5.15, 5.15, 4.92], [1.55, 3.32, 3.32, 1.32, 1.32], color=b_col, lw=1.8)
         ax.add_patch(patches.Circle((4.62, 1.32), 0.30, facecolor='#FF9800', edgecolor=b_col, lw=1.8, zorder=4))
         ax.text(4.62, 1.32, "G1", ha='center', va='center', fontsize=8.8, fontweight='bold', color=b_col, zorder=5)
         ax.annotate("", xy=(4.30, 1.32), xytext=(4.32, 1.32), arrowprops=dict(arrowstyle="->", color=b_col, lw=1.8))
         ax.text(5.28, 1.32, "G1 (Top Axial)", ha='left', va='center', fontsize=8.8, fontweight='bold', color='#D84315')
 
-        # 3. Axial G2 (Bottom)
         ax.plot([2.475, 2.475, 5.15, 5.15, 4.92], [-1.55, -2.02, -2.02, -1.32, -1.32], color=b_col, lw=1.8)
         ax.add_patch(patches.Circle((4.62, -1.32), 0.30, facecolor='#FF9800', edgecolor=b_col, lw=1.8, zorder=4))
         ax.text(4.62, -1.32, "G2", ha='center', va='center', fontsize=8.8, fontweight='bold', color=b_col, zorder=5)
@@ -448,24 +400,19 @@ def draw_coupling_physical_setup(ax, choice: str):
                 "* All shim adjustments performed on Generator Brg.5 & 6."
             )
             bg_col, bdr_col = "#FFEBEE", "#C62828"
-
     else:
-        # Solution 1: ยึดฐานที่ LP. TURBINE ข้ามไปจี้ GENERATOR (ตามหลักหนังสือเมื่อ Gen Fixed)
-        # 1. Rim Gauge (Radial)
         ax.plot([3.925, 3.925, 2.475, 2.475], [1.55, 3.15, 3.15, 2.68], color=b_col, lw=1.8)
         ax.add_patch(patches.Circle((2.475, 2.38), 0.30, facecolor='#FF9800', edgecolor=b_col, lw=1.8, zorder=4))
         ax.text(2.475, 2.38, "R", ha='center', va='center', fontsize=9.5, fontweight='bold', color=b_col, zorder=5)
         ax.annotate("", xy=(2.475, 1.55), xytext=(2.475, 2.08), arrowprops=dict(arrowstyle="->", color=b_col, lw=1.8))
         ax.text(3.20, 3.25, "Radial (Rim)", ha='center', va='bottom', fontsize=8.8, fontweight='bold', color='#1565C0')
 
-        # 2. Axial G1 (Top)
         ax.plot([3.75, 3.75, 1.25, 1.25, 1.48], [1.55, 3.32, 3.32, 1.32, 1.32], color=b_col, lw=1.8)
         ax.add_patch(patches.Circle((1.78, 1.32), 0.30, facecolor='#FF9800', edgecolor=b_col, lw=1.8, zorder=4))
         ax.text(1.78, 1.32, "G1", ha='center', va='center', fontsize=8.8, fontweight='bold', color=b_col, zorder=5)
         ax.annotate("", xy=(2.10, 1.32), xytext=(2.08, 1.32), arrowprops=dict(arrowstyle="->", color=b_col, lw=1.8))
         ax.text(1.12, 1.32, "G1 (Top Axial)", ha='right', va='center', fontsize=8.8, fontweight='bold', color='#D84315')
 
-        # 3. Axial G2 (Bottom)
         ax.plot([3.925, 3.925, 1.25, 1.25, 1.48], [-1.55, -2.02, -2.02, -1.32, -1.32], color=b_col, lw=1.8)
         ax.add_patch(patches.Circle((1.78, -1.32), 0.30, facecolor='#FF9800', edgecolor=b_col, lw=1.8, zorder=4))
         ax.text(1.78, -1.32, "G2", ha='center', va='center', fontsize=8.8, fontweight='bold', color=b_col, zorder=5)
@@ -636,7 +583,7 @@ st.markdown("""
 col_input, col_view = st.columns([1.15, 1.85], gap="large")
 
 # =========================================================================
-# Left Panel: ใบกรอกข้อมูลหน้างาน (Zero-Click UI)
+# Left Panel: ใบกรอกข้อมูลหน้างาน
 # =========================================================================
 with col_input:
     st.markdown("### 📝 1. เลือกวิธีปรับตั้ง & ป้อนค่าหน้างาน")
@@ -649,7 +596,6 @@ with col_input:
     sol_selected = st.radio("เลือกแนวทางการจัดแผ่นชิม (Alignment Strategy):", sol_options, key="active_solution_radio")
     choice_val = sol_selected[9]
 
-    # ปุ่มเครื่องมือสำหรับพี่ช่าง: โหลดตัวอย่างทดสอบ / ล้างค่าทั้งหมด
     b_col1, b_col2 = st.columns(2)
     if b_col1.button("📋 โหลดค่าตัวอย่างหน้างาน", use_container_width=True):
         st.session_state.d_coupling = 760.0
@@ -680,7 +626,6 @@ with col_input:
             st.number_input("ระยะถึง LP Brg.4 (mm)", value=None, placeholder="เช่น 550", step=10.0, key="l_brg4")
             st.number_input("ระยะถึง Gen Brg.6 (mm)", value=None, placeholder="เช่น 9790", step=10.0, key="l_brg6")
 
-    # ตารางกรอกข้อมูลตามแบบฟอร์ม Coupling LP-Gen
     st.markdown('<div class="sheet-title">ตารางบันทึกค่า Coupling LP-Gen (หน่วย: mm)</div>', unsafe_allow_html=True)
 
     st.markdown("**1) ค่าแนวรัศมี (Radial - จับ Gen จี้ LP)**")
@@ -770,43 +715,62 @@ with col_view:
     r_right = float(st.session_state.r_right)
 
     # =====================================================================
-    # ส่วนที่ A: ตัวแปรคำนวณชิม (Raw Difference — แยกเด็ดขาดจากการเซ็ต 0 บนรูป)
+    # 1. แปลงค่าเทียบศูนย์ (min_val -> 0 ทั้ง 2 แกน ตามหนังสือ)
     # =====================================================================
-    delta_x_v = (raw_a_bottom - raw_a_top) - TARGET_AXIAL_GAP_MM   # > 0 = อ้าด้านล่าง (Bottom Open)
-    delta_gap_lr = raw_a_left - raw_a_right                        # > 0 = อ้าด้านซ้าย (Left Open)
+    zero_r_top, zero_r_bot, zero_r_left, zero_r_right, off_r_tb, off_r_lr = convert_tir_to_zero_ref(
+        r_top, r_bottom, r_left, r_right
+    )
+    zero_a_top, zero_a_bot, zero_a_left, zero_a_right, off_a_tb, off_a_lr = convert_tir_to_zero_ref(
+        raw_a_top, raw_a_bottom, raw_a_left, raw_a_right
+    )
 
+    # =====================================================================
+    # 2. ตรวจสอบสมการเกจวัด (T + B = L + R)
+    # =====================================================================
     diff_r_mm = abs((r_top + r_bottom) - (r_left + r_right))
     valid_r = diff_r_mm <= TOLERANCE_RADIAL_MM
 
     diff_a_mm = abs((raw_a_top + raw_a_bottom) - (raw_a_left + raw_a_right))
     valid_a = diff_a_mm <= 0.025
 
-    # กฎหาร 2 ของแนว Radial (จับฐานเกจที่ Gen จี้ไปที่ LP)
-    gen_above_lp_mm = (r_top - r_bottom) / 2.0
-    comp_vertical_mm = gen_above_lp_mm + TARGET_GEN_DOWN_MM
-    gen_right_of_lp_mm = (r_left - r_right) / 2.0
+    # =====================================================================
+    # 3. หาตำแหน่งจริงของเพลา (กฎหาร 2 — จับฐานเกจที่ Gen จี้ LP)
+    # =====================================================================
+    lp_above_gen_mm = (zero_r_top - zero_r_bot) / 2.0      # +0.155 mm (LP สูงกว่า Gen)
+    gen_above_lp_mm = -lp_above_gen_mm                     # -0.155 mm (Gen ต่ำกว่า LP)
+
+    # เป้าหมายแม่เมาะ: ต้องการให้ Gen ต่ำกว่า LP = 0.100 mm (หรือ LP สูงกว่า Gen = +0.100 mm)
+    lp_radial_corr_mm = TARGET_GEN_DOWN_MM - lp_above_gen_mm   # 0.100 - 0.155 = -0.055 mm
+    gen_radial_corr_mm = -lp_radial_corr_mm                    # +0.055 mm
+
+    # แนวนอน (L & R): LP เยื้องไปทางซ้าย (L) ของ Gen = +0.160 mm
+    lp_left_of_gen_mm = (zero_r_left - zero_r_right) / 2.0 # +0.160 mm
+
+    # ระยะเปิดอ้าหน้าแปลน Axial:
+    delta_x_v = (raw_a_bottom - raw_a_top) - TARGET_AXIAL_GAP_MM   # > 0 = ด้านล่างอ้า (+0.100 mm)
+    delta_gap_lr = raw_a_left - raw_a_right                        # > 0 = ด้านซ้ายอ้า (+0.005 mm)
 
     target_radial_bottom_mm = 2.0 * TARGET_GEN_DOWN_MM
     target_radial_side_mm = TARGET_GEN_DOWN_MM
 
-    # คำนวณระยะปรับตั้งที่ตำแหน่ง Bearing (+ คือ หนุนขึ้น/เลื่อนซ้าย L, - คือ ถอนออก/เลื่อนขวา R)
+    # =====================================================================
+    # 4. คำนวณระยะปรับตั้งที่ Bearing (ทำ Axial ก่อน แล้วรวมกับ Radial)
+    # (+ คือ หนุน Shim ขึ้น / เลื่อนไปทางซ้าย L, - คือ ถอน Shim ออก / เลื่อนไปทางขวา R)
+    # =====================================================================
     def calc_adjustments(arm_len_mm, is_lp_side=False):
         ax_v = (delta_x_v * arm_len_mm) / d_coupling
-        if is_lp_side:
-            v_move = +ax_v + comp_vertical_mm
-        else:
-            v_move = -ax_v - comp_vertical_mm
-
         ax_h = (delta_gap_lr * arm_len_mm) / d_coupling
         if is_lp_side:
-            h_move = +ax_h - gen_right_of_lp_mm
+            v_move = (+ax_v) + lp_radial_corr_mm
+            h_move = (+ax_h) - lp_left_of_gen_mm
         else:
-            h_move = -ax_h + gen_right_of_lp_mm
-        return v_move, h_move
+            v_move = (-ax_v) + gen_radial_corr_mm
+            h_move = (-ax_h) + lp_left_of_gen_mm
+        return ax_v, ax_h, v_move, h_move
 
-    lp_v_full, lp_h_full = calc_adjustments(l_brg4, is_lp_side=True)
-    b5_v_full, b5_h_full = calc_adjustments(l_brg5, is_lp_side=False)
-    b6_v_full, b6_h_full = calc_adjustments(l_brg6, is_lp_side=False)
+    lp_ax_v, lp_ax_h, lp_v_full, lp_h_full = calc_adjustments(l_brg4, is_lp_side=True)
+    b5_ax_v, b5_ax_h, b5_v_full, b5_h_full = calc_adjustments(l_brg5, is_lp_side=False)
+    b6_ax_v, b6_ax_h, b6_v_full, b6_h_full = calc_adjustments(l_brg6, is_lp_side=False)
 
     if choice_val == '1':
         r_lp, r_gen = 1.0, 0.0
@@ -820,19 +784,9 @@ with col_view:
     shim_b6, shift_b6 = r_gen * b6_v_full, r_gen * b6_h_full
 
     gen_results = [
-        ("Gen Brg.5", l_brg5, shim_b5, shift_b5),
-        ("Gen Brg.6", l_brg6, shim_b6, shift_b6),
+        ("Gen Brg.5", l_brg5, b5_ax_v, b5_ax_h, shim_b5, shift_b5),
+        ("Gen Brg.6", l_brg6, b6_ax_v, b6_ax_h, shim_b6, shift_b6),
     ]
-
-    # =====================================================================
-    # ส่วนที่ B: โปรแกรมตัดสินใจแปลงค่าเทียบศูนย์อัตโนมัติ (Smart TIR Decision)
-    # =====================================================================
-    zero_a_top, zero_a_bot, zero_a_left, zero_a_right = smart_zero_reference_axial(
-        raw_a_top, raw_a_bottom, raw_a_left, raw_a_right
-    )
-    zero_r_top, zero_r_bot, zero_r_left, zero_r_right, off_r_tb, off_r_lr, lr_decision_th = smart_zero_reference_radial(
-        r_top, r_bottom, r_left, r_right
-    )
 
     if not valid_r:
         st.warning(f"⚠️ **คำเตือนตรวจเช็กค่า Radial:** ผลรวม $(T+B) = {r_top+r_bottom:+.2f}$ ต่างจาก $(L+R) = {r_left+r_right:+.2f}$ อยู่ **{diff_r_mm:.2f} mm** (เกินเกณฑ์มาตรฐาน 0.03 mm ควรทวนสอบตัวเลขหน้างาน)")
@@ -917,7 +871,7 @@ with col_view:
             (f"Brg.6 ({l_brg6:.0f})", "FIXED" if choice_val == '1' else f"{shim_b6:+.3f} mm"),
         ]
         note_tb_box = (
-            f"• Axial Gap (T-B) = {delta_x_v:+.3f} mm | Comp. Vertical = {comp_vertical_mm:+.3f} mm\n"
+            f"• Axial Gap (T-B) = {delta_x_v:+.3f} mm | LP Radial Corr = {lp_radial_corr_mm:+.3f} mm\n"
             f"• LP Brg.4 = {shim_b4:+.3f} mm | Gen Brg.5 = {shim_b5:+.3f} mm | Gen Brg.6 = {shim_b6:+.3f} mm"
         )
         draw_perpendicular_manual_diagram(
@@ -935,7 +889,7 @@ with col_view:
             (f"Brg.6 ({l_brg6:.0f})", "FIXED" if choice_val == '1' else (f"L +{shift_b6:.3f}" if shift_b6 >= 0 else f"R {abs(shift_b6):.3f}")),
         ]
         note_lr_box = (
-            f"• Axial Gap (L-R) = {delta_gap_lr:+.4f} mm | Offset H = {gen_right_of_lp_mm:+.3f} mm\n"
+            f"• Axial Gap (L-R) = {delta_gap_lr:+.4f} mm | LP Left Offset = {lp_left_of_gen_mm:+.3f} mm\n"
             f"• LP Brg.4 = {shift_b4:+.3f} mm | Gen Brg.5 = {shift_b5:+.3f} mm | Gen Brg.6 = {shift_b6:+.3f} mm"
         )
         draw_perpendicular_manual_diagram(
@@ -943,7 +897,7 @@ with col_view:
             title=f"2. TOP VIEW (L - R) | Look to Generator (Solution {choice_val})",
             pos_lbl="L", neg_lbl="R", choice_val=choice_val,
             ax_open_mm=delta_gap_lr, open_at_neg=(delta_gap_lr < 0),
-            rad_gen_high_mm=-gen_right_of_lp_mm,
+            rad_gen_high_mm=-lp_left_of_gen_mm,
             l_b4=l_brg4, lp_action_txt=lp_act_h, gen_action_list=gen_act_h_list, sub_note=note_lr_box
         )
 
@@ -974,8 +928,8 @@ with col_view:
     # Tab 2: ใบบันทึกผลและวิเคราะห์เกจ
     # ---------------------------------------------------------------------
     with tab2:
-        st.subheader("📋 ใบบันทึกผลและวิเคราะห์เกจ (Inspection Sheet & Smart TIR Analysis)")
-        st.caption("แถวบน = ค่าดิบที่อ่านได้จากตาราง/Dial Gauge | แถวล่าง = โปรแกรมตัดสินใจแปลงค่าเทียบศูนย์อัตโนมัติ (ล็อก Top = 0 และปรับฝั่งน้อยแกนซ้าย–ขวาเป็น 0)")
+        st.subheader("📋 ใบบันทึกผลและวิเคราะห์เกจ (Inspection Sheet & Zero-Reference Analysis)")
+        st.caption("แถวบน = ค่าดิบที่อ่านได้จากตาราง/Dial Gauge | แถวล่าง = ค่าแปลงเทียบศูนย์ (0) เพื่อให้ฝั่งที่น้อยกว่าเป็น 0 ทั้งสองแกน")
 
         c1, c2 = st.columns(2)
         with c1:
@@ -987,11 +941,11 @@ with col_view:
             if valid_r:
                 st.success(f"**2. แนวรัศมีเพลา (Radial Rim TIR):**\n"
                            f"- ตรวจสอบ $(T+B)-(L+R)$ = **{diff_r_mm:.2f} mm** (✅ ผ่านเกณฑ์ <= 0.03 mm)\n"
-                           f"- ค่าเทียบศูนย์อัตโนมัติ: $T={zero_r_top:.2f}, B={zero_r_bot:+.2f}$ | $L={zero_r_left:+.2f}, R={zero_r_right:+.2f}$")
+                           f"- ค่าเทียบศูนย์ (Zero-Referenced): $T={zero_r_top:+.2f}, B={zero_r_bot:+.2f}$ | $L={zero_r_left:+.2f}, R={zero_r_right:+.2f}$")
             else:
                 st.error(f"**2. แนวรัศมีเพลา (Radial Rim TIR):**\n"
                          f"- ตรวจสอบ $(T+B)-(L+R)$ = **{diff_r_mm:.2f} mm** (❌ เกินเกณฑ์ 0.03 mm: $T+B={r_top+r_bottom:+.2f}$, $L+R={r_left+r_right:+.2f}$)\n"
-                         f"- ค่าเทียบศูนย์อัตโนมัติ: $T={zero_r_top:.2f}, B={zero_r_bot:+.2f}$ | $L={zero_r_left:+.2f}, R={zero_r_right:+.2f}$")
+                         f"- ค่าเทียบศูนย์ (Zero-Referenced): $T={zero_r_top:+.2f}, B={zero_r_bot:+.2f}$ | $L={zero_r_left:+.2f}, R={zero_r_right:+.2f}$")
 
         fig1 = plt.figure(figsize=(15, 11.2))
 
@@ -1004,11 +958,11 @@ with col_view:
         )
 
         ax2 = fig1.add_subplot(2, 2, 2)
-        rim_desc_en = f"Gen HIGHER than LP by {abs(gen_above_lp_mm):.3f} mm" if gen_above_lp_mm >= 0 else f"Gen LOWER than LP by {abs(gen_above_lp_mm):.3f} mm"
+        rim_desc_en = f"LP HIGHER than Gen by {abs(lp_above_gen_mm):.3f} mm" if lp_above_gen_mm >= 0 else f"LP LOWER than Gen by {abs(lp_above_gen_mm):.3f} mm"
         draw_dial_crosshair(
             ax2, "[2] Raw Radial Input (Dial Gauge)", "R",
             r_top, r_bottom, r_left, r_right, '#C62828',
-            f"Vertical Offset = {abs(gen_above_lp_mm):.3f} mm", rim_desc_en, is_radial_raw=True
+            f"True Vertical Offset = {abs(lp_above_gen_mm):.3f} mm", rim_desc_en, is_radial_raw=True
         )
 
         ax3 = fig1.add_subplot(2, 2, 3)
@@ -1016,16 +970,15 @@ with col_view:
             ax3, "[3] Zero-Referenced Axial (Closed = 0.000)", "A",
             zero_a_top, zero_a_bot, zero_a_left, zero_a_right, '#1565C0',
             f"V-Gap = {abs(delta_x_v):.3f} mm | H-Gap = {abs(delta_gap_lr):.3f} mm",
-            "Auto-Normalized: Closed Side Set to 0.000 mm", is_radial_raw=False
+            "Closed Side Set to 0.000 mm", is_radial_raw=False
         )
 
         ax4 = fig1.add_subplot(2, 2, 4)
-        lr_zero_note_en = f"L={zero_r_left:+.2f}, R={zero_r_right:+.2f} mm (Min Side = 0)"
         draw_dial_crosshair(
-            ax4, "[4] Zero-Referenced Radial TIR (Top=0 & Min=0)", "R",
+            ax4, "[4] Zero-Referenced Radial TIR (Min = 0.00)", "R",
             zero_r_top, zero_r_bot, zero_r_left, zero_r_right, '#1565C0',
-            f"Vertical TIR: T=0.00, B={zero_r_bot:+.2f} mm",
-            lr_zero_note_en, is_radial_raw=True
+            f"Vertical: T={zero_r_top:+.2f}, B={zero_r_bot:+.2f} mm",
+            f"Horizontal: L={zero_r_left:+.2f}, R={zero_r_right:+.2f} mm", is_radial_raw=True
         )
 
         plt.subplots_adjust(top=0.94, bottom=0.06, hspace=0.38, wspace=0.25)
@@ -1059,48 +1012,97 @@ with col_view:
         st.pyplot(fig3)
 
     # ---------------------------------------------------------------------
-    # Tab 4: ขั้นตอนการคำนวณอย่างละเอียดตามหนังสือ อ.สมเกียรติ สมหล่อ
+    # Tab 4: วิธีทำและ Solve มือละเอียดตามตำรา (อ่านง่ายเป็นขั้นเป็นตอน)
     # ---------------------------------------------------------------------
     with tab4:
-        st.subheader(f"📝 วิธีทำและ Solve มือละเอียดที่ Bearing ตามหนังสือ [SOLUTION {choice_val}]")
+        st.subheader(f"📝 วิธีทำและ Solve มือละเอียด [SOLUTION {choice_val}]")
 
-        with st.expander("🔹 ขั้นตอนที่ 1: ตรวจสอบความถูกต้องของค่าที่อ่านได้ (T + B = L + R)", expanded=True):
+        with st.expander("🔹 ขั้นตอนที่ 1: ตรวจสอบความถูกต้องของค่าที่อ่านได้ (T + B = L + R) และแปลงค่าเทียบศูนย์ (0)", expanded=True):
             c_v1, c_v2 = st.columns(2)
             with c_v1:
-                st.markdown("**1.1 ตรวจสอบแนว RADIAL (หน่วย: mm):**")
-                st.latex(rf"T + B = ({r_top:+.2f}) + ({r_bottom:+.2f}) = {r_top + r_bottom:+.2f}\text{{ mm}}")
-                st.latex(rf"L + R = ({r_left:+.2f}) + ({r_right:+.2f}) = {r_left + r_right:+.2f}\text{{ mm}}")
-                st.write(f"ผลต่าง $= {diff_r_mm:.2f}$ mm ({'✅ ผ่านเกณฑ์ <= 0.03 mm' if valid_r else '❌ เกินเกณฑ์ 0.03 mm'})")
+                st.markdown("**1.1 แนวรัศมี (RADIAL):**")
+                st.write(f"- เช็กผลรวม: $T + B = ({r_top:+.2f}) + ({r_bottom:+.2f}) = {r_top + r_bottom:+.2f}\\text{{ mm}}$ | $L + R = ({r_left:+.2f}) + ({r_right:+.2f}) = {r_left + r_right:+.2f}\\text{{ mm}}$")
+                st.write(f"- แปลงเทียบศูนย์ (`min -> 0`): **$T = {zero_r_top:+.2f}, B = {zero_r_bot:+.2f}$** และ **$L = {zero_r_left:+.2f}, R = {zero_r_right:+.2f}\\text{{ mm}}$**")
+                st.write(f"- ตำแหน่งจริง (หาร 2): **LP อยู่สูงกว่า Gen $= {lp_above_gen_mm:.3f}\\text{{ mm}}$** (เป้าหมายต้องการให้ LP สูงกว่า Gen $= {TARGET_GEN_DOWN_MM:.3f}\\text{{ mm}}$ $\\rightarrow$ **LP สูงเกินเป้าหมายอยู่ `{abs(lp_radial_corr_mm):.3f} mm`**) และ **LP เยื้องไปทางซ้าย (`L`) ของ Gen $= {lp_left_of_gen_mm:.3f}\\text{{ mm}}$**")
             with c_v2:
-                st.markdown("**1.2 ตรวจสอบแนว AXIAL (หน่วย: mm):**")
-                st.latex(rf"T = {raw_a_top:+.3f}, \quad B = {raw_a_bottom:+.3f} \implies \Delta X_{{TB}} = B - T = {delta_x_v:+.3f}\text{{ mm}}")
-                st.latex(rf"L = {raw_a_left:+.3f}, \quad R = {raw_a_right:+.4f} \implies \Delta X_{{LR}} = L - R = {delta_gap_lr:+.4f}\text{{ mm}}")
+                st.markdown("**1.2 แนวแกนหน้าแปลน (AXIAL):**")
+                st.write(f"- แปลงเทียบศูนย์ (`min -> 0`): **$T = {zero_a_top:.3f}, B = {zero_a_bot:.3f}$** และ **$L = {zero_a_left:.3f}, R = {zero_a_right:.3f}\\text{{ mm}}$**")
+                v_open_txt = f"หน้าแปลนด้านล่างอ้า `{abs(delta_x_v):.3f} mm`" if delta_x_v > 0 else (f"หน้าแปลนด้านบนอ้า `{abs(delta_x_v):.3f} mm`" if delta_x_v < 0 else "หน้าแปลนขนานแนวดิ่ง (`0.000 mm`)")
+                h_open_txt = f"หน้าแปลนด้านซ้ายอ้า `{abs(delta_gap_lr):.3f} mm`" if delta_gap_lr > 0 else (f"หน้าแปลนด้านขวาอ้า `{abs(delta_gap_lr):.3f} mm`" if delta_gap_lr < 0 else "หน้าแปลนขนานแนวนอน (`0.000 mm`)")
+                st.write(f"- แนวดิ่ง: {v_open_txt}")
+                st.write(f"- แนวนอน: {h_open_txt}")
 
-        with st.expander("🔹 ขั้นตอนที่ 2: การตัดสินใจแปลงค่าเทียบศูนย์อัตโนมัติ (Smart TIR) และกฎหาร 2", expanded=True):
-            st.markdown("**2.1 ผลการตัดสินใจแปลงค่า Radial TIR เทียบศูนย์ (ตามหลักหนังสือหน้า 20, 25):**")
-            st.write(f"- **แกนบน–ล่าง:** ล็อกให้ **Top = 0.00** เสมอตามมาตรฐานหน้างาน → ได้ **T = 0.00, B = {zero_r_bot:+.2f} mm**")
-            st.write(f"- **แกนซ้าย–ขวา:** {lr_decision_th}")
+        st.markdown("---")
 
-            st.markdown("**2.2 หาตำแหน่งเยื้องศูนย์จริงของเพลา (กฎหาร 2 — คำนวณจากผลต่างดิบ):**")
-            st.latex(rf"\text{{แนวดิ่ง (T\&B): }} \text{{Gen สูงกว่า LP}} = \frac{{T - B}}{{2}} = \frac{{({r_top:+.2f}) - ({r_bottom:+.2f})}}{{2}} = {gen_above_lp_mm:+.3f}\text{{ mm}}")
-            st.latex(rf"\text{{รวม Target Offset (Gen down {TARGET_GEN_DOWN_MM:.3f} mm)}} \implies \Delta Y_{{TB}} = ({gen_above_lp_mm:+.3f}) + {TARGET_GEN_DOWN_MM:.3f} = \mathbf{{{comp_vertical_mm:+.3f}\text{{ mm}}}}")
-            st.latex(rf"\text{{แนวนอน (L\&R): }} \text{{Gen เยื้องขวาของ LP}} = \frac{{L - R}}{{2}} = \frac{{({r_left:+.2f}) - ({r_right:+.2f})}}{{2}} = \mathbf{{{gen_right_of_lp_mm:+.3f}\text{{ mm}}}}")
+        if choice_val == '1':
+            st.markdown(f"### 1. กรณี Solution 1: ปรับเฉพาะ LP Brg.4 (`L4 = {l_brg4:.0f} mm`, `D = {d_coupling:.0f} mm`) — ล็อก Gen คงที่")
 
-        with st.expander(f"🔹 ขั้นตอนที่ 3: คำนวณระยะปรับ Shim ที่ Bearing (Axial ก่อน แล้วรวมกับ Radial) [SOLUTION {choice_val}]", expanded=True):
-            st.markdown("ทิศทางมาตรฐาน: **บวก (+)** = หนุน Shim ขึ้น / เลื่อนไปทางซ้าย (L) | **ลบ (-)** = ถอน Shim ออก / เลื่อนไปทางขวา (R)")
-            col_s1, col_s2 = st.columns(2)
-            with col_s1:
-                st.markdown("### 1️⃣ แนวดิ่ง (บน – ล่าง : T & B)")
-                if choice_val in ['1', '2']:
-                    st.latex(rf"\text{{LP Brg.4}} = {r_lp} \times \left[ \frac{{({delta_x_v:+.3f}) \times {l_brg4:.0f}}}{{{d_coupling:.0f}}} + ({comp_vertical_mm:+.3f}) \right] = \mathbf{{{shim_b4:+.3f}\text{{ mm}}}}")
-                if choice_val in ['2', '3']:
-                    for name_pt, len_pt, gv, _ in gen_results:
-                        st.latex(rf"\text{{{name_pt}}} = {r_gen} \times \left[ -\frac{{({delta_x_v:+.3f}) \times {len_pt:.0f}}}{{{d_coupling:.0f}}} - ({comp_vertical_mm:+.3f}) \right] = \mathbf{{{gv:+.3f}\text{{ mm}}}}")
+            st.markdown("* **แนวดิ่ง (บน–ล่าง):**")
+            v_gap_dir = "ล่าง" if delta_x_v >= 0 else "บน"
+            v_ax_act = "ยก LP Brg.4 ขึ้น" if lp_ax_v >= 0 else "ลด LP Brg.4 ลง"
+            v_rad_act = "ลด LP Brg.4 ลง" if lp_radial_corr_mm < 0 else "ยก LP Brg.4 ขึ้น"
+            v_net_act = "หนุนขึ้น" if shim_b4 >= 0 else "ถอนออก"
+            st.markdown(
+                f"  1. ปิดช่องอ้าหน้าแปลน{v_gap_dir} (`{abs(delta_x_v):.3f} mm`): ต้อง **{v_ax_act}** "
+                f"$\\frac{{{delta_x_v:+.3f} \\times {l_brg4:.0f}}}{{{d_coupling:.0f}}} = \\mathbf{{{lp_ax_v:+.4f}\\text{{ mm}}}}$\n"
+                f"  2. แก้ Radial ({'ลด LP ที่สูงเกินเป้าหมาย' if lp_radial_corr_mm < 0 else 'ยก LP ให้ได้ตามเป้าหมาย'} `{abs(lp_radial_corr_mm):.3f} mm`): ต้อง **{v_rad_act}** $\\mathbf{{{lp_radial_corr_mm:+.4f}\\text{{ mm}}}}$\n"
+                f"  3. **รวมสุทธิ LP Brg.4 แนวดิ่ง:** $({lp_ax_v:+.4f}) + ({lp_radial_corr_mm:+.4f}) = \\mathbf{{{shim_b4:+.3f}\\text{{ mm}}}}$ *({v_net_act} {abs(shim_b4)*100:.1f} ขีด)*"
+            )
 
-            with col_s2:
-                st.markdown("### 2️⃣ แนวนอน (ซ้าย – ขวา : L & R)")
-                if choice_val in ['1', '2']:
-                    st.latex(rf"\text{{LP Brg.4}} = {r_lp} \times \left[ \frac{{({delta_gap_lr:+.4f}) \times {l_brg4:.0f}}}{{{d_coupling:.0f}}} - ({gen_right_of_lp_mm:+.3f}) \right] = \mathbf{{{shift_b4:+.3f}\text{{ mm}}}}")
-                if choice_val in ['2', '3']:
-                    for name_pt, len_pt, _, gh in gen_results:
-                        st.latex(rf"\text{{{name_pt}}} = {r_gen} \times \left[ -\frac{{({delta_gap_lr:+.4f}) \times {len_pt:.0f}}}{{{d_coupling:.0f}}} + ({gen_right_of_lp_mm:+.3f}) \right] = \mathbf{{{gh:+.3f}\text{{ mm}}}}")
+            st.markdown("* **แนวนอน (ซ้าย–ขวา):**")
+            h_gap_dir = "ซ้าย" if delta_gap_lr >= 0 else "ขวา"
+            h_ax_act = "ดัน LP Brg.4 ไปทางซ้าย (`+L`)" if lp_ax_h >= 0 else "ดัน LP Brg.4 ไปทางขวา (`-R`)"
+            h_rad_act = "ดัน LP Brg.4 ไปทางขวา (`-R`)" if lp_left_of_gen_mm >= 0 else "ดัน LP Brg.4 ไปทางซ้าย (`+L`)"
+            h_net_act = "เลื่อนไปทางซ้าย L" if shift_b4 >= 0 else "เลื่อนไปทางขวา R"
+            st.markdown(
+                f"  1. ปิดช่องอ้าหน้าแปลน{h_gap_dir} (`{abs(delta_gap_lr):.3f} mm`): ต้อง **{h_ax_act}** "
+                f"$\\frac{{{delta_gap_lr:+.3f} \\times {l_brg4:.0f}}}{{{d_coupling:.0f}}} = \\mathbf{{{lp_ax_h:+.4f}\\text{{ mm}}}}$\n"
+                f"  2. แก้ Radial (ดึง LP ที่เยื้อง{'ซ้าย' if lp_left_of_gen_mm >= 0 else 'ขวา'} `{abs(lp_left_of_gen_mm):.3f} mm` กลับมา): ต้อง **{h_rad_act}** $\\mathbf{{{-lp_left_of_gen_mm:+.4f}\\text{{ mm}}}}$\n"
+                f"  3. **รวมสุทธิ LP Brg.4 แนวนอน:** $({lp_ax_h:+.4f}) + ({-lp_left_of_gen_mm:+.4f}) = \\mathbf{{{shift_b4:+.3f}\\text{{ mm}}}}$ *({h_net_act} {abs(shift_b4)*100:.1f} ขีด)*"
+            )
+
+        elif choice_val == '3':
+            st.markdown(f"### 3. กรณี Solution 3: ปรับเฉพาะ Gen Brg.5 & Brg.6 (`L5 = {l_brg5:.0f} mm`, `L6 = {l_brg6:.0f} mm`, `D = {d_coupling:.0f} mm`) — ล็อก LP คงที่")
+
+            st.markdown("* **แนวดิ่ง (บน–ล่าง):**")
+            v_gap_dir = "ล่าง" if delta_x_v >= 0 else "บน"
+            v_ax_act = "กดท้าย Gen ลง" if delta_x_v >= 0 else "ยกท้าย Gen ขึ้น"
+            v_rad_act = "ยก Gen ขึ้น" if gen_radial_corr_mm >= 0 else "กด Gen ลง"
+            st.markdown(
+                f"  1. ปิดช่องอ้าหน้าแปลน{v_gap_dir} (`{abs(delta_x_v):.3f} mm`): ต้อง **{v_ax_act}**\n"
+                f"     - Gen Brg.5: $-\\frac{{{delta_x_v:+.3f} \\times {l_brg5:.0f}}}{{{d_coupling:.0f}}} = \\mathbf{{{-b5_ax_v:+.4f}\\text{{ mm}}}}$\n"
+                f"     - Gen Brg.6: $-\\frac{{{delta_x_v:+.3f} \\times {l_brg6:.0f}}}{{{d_coupling:.0f}}} = \\mathbf{{{-b6_ax_v:+.4f}\\text{{ mm}}}}$\n"
+                f"  2. แก้ Radial (ชดเชย Catenary Curve `{abs(gen_radial_corr_mm):.3f} mm`): ต้อง **{v_rad_act}** $\\mathbf{{{gen_radial_corr_mm:+.4f}\\text{{ mm}}}}$ เท่ากันทั้ง 2 จุด\n"
+                f"  3. **รวมสุทธิแนวดิ่ง:**\n"
+                f"     - **Gen Brg.5:** $({-b5_ax_v:+.4f}) + ({gen_radial_corr_mm:+.4f}) = \\mathbf{{{shim_b5:+.3f}\\text{{ mm}}}}$ *({'หนุนขึ้น' if shim_b5>=0 else 'ถอนออก'} {abs(shim_b5)*100:.1f} ขีด)*\n"
+                f"     - **Gen Brg.6:** $({-b6_ax_v:+.4f}) + ({gen_radial_corr_mm:+.4f}) = \\mathbf{{{shim_b6:+.3f}\\text{{ mm}}}}$ *({'หนุนขึ้น' if shim_b6>=0 else 'ถอนออก'} {abs(shim_b6)*100:.1f} ขีด)*"
+            )
+
+            st.markdown("* **แนวนอน (ซ้าย–ขวา):**")
+            h_gap_dir = "ซ้าย" if delta_gap_lr >= 0 else "ขวา"
+            h_ax_act = "ดันท้าย Gen ไปทางขวา (`-R`)" if delta_gap_lr >= 0 else "ดันท้าย Gen ไปทางซ้าย (`+L`)"
+            h_rad_act = "เลื่อน Gen ไปทางซ้าย (`+L`)" if lp_left_of_gen_mm >= 0 else "เลื่อน Gen ไปทางขวา (`-R`)"
+            st.markdown(
+                f"  1. ปิดช่องอ้าหน้าแปลน{h_gap_dir} (`{abs(delta_gap_lr):.3f} mm`): ต้อง **{h_ax_act}**\n"
+                f"     - Gen Brg.5: $-\\frac{{{delta_gap_lr:+.3f} \\times {l_brg5:.0f}}}{{{d_coupling:.0f}}} = \\mathbf{{{-b5_ax_h:+.4f}\\text{{ mm}}}}$\n"
+                f"     - Gen Brg.6: $-\\frac{{{delta_gap_lr:+.3f} \\times {l_brg6:.0f}}}{{{d_coupling:.0f}}} = \\mathbf{{{-b6_ax_h:+.4f}\\text{{ mm}}}}$\n"
+                f"  2. แก้ Radial (LP เยื้อง{'ซ้าย' if lp_left_of_gen_mm >= 0 else 'ขวา'} Gen อยู่ `{abs(lp_left_of_gen_mm):.3f} mm`): ต้อง **{h_rad_act}** $\\mathbf{{{lp_left_of_gen_mm:+.4f}\\text{{ mm}}}}$ เท่ากันทั้ง 2 จุด\n"
+                f"  3. **รวมสุทธิแนวนอน:**\n"
+                f"     - **Gen Brg.5:** $({-b5_ax_h:+.4f}) + ({lp_left_of_gen_mm:+.4f}) = \\mathbf{{{shift_b5:+.3f}\\text{{ mm}}}}$ *({'เลื่อนไปทางซ้าย L' if shift_b5>=0 else 'เลื่อนไปทางขวา R'} {abs(shift_b5)*100:.1f} ขีด)*\n"
+                f"     - **Gen Brg.6:** $({-b6_ax_h:+.4f}) + ({lp_left_of_gen_mm:+.4f}) = \\mathbf{{{shift_b6:+.3f}\\text{{ mm}}}}$ *({'เลื่อนไปทางซ้าย L' if shift_b6>=0 else 'เลื่อนไปทางขวา R'} {abs(shift_b6)*100:.1f} ขีด)*"
+            )
+
+        else:
+            st.markdown(f"### 2. กรณี Solution 2: แบ่งสัดส่วนปรับร่วมกัน 50:50 (`LP Brg.4` 50% + `Gen Brg.5, 6` 50%)")
+            st.markdown("* **แนวดิ่ง (บน–ล่าง) — แบ่งครึ่ง 50% ของแต่ละฝั่ง:**")
+            st.markdown(
+                f"  1. **LP Bearing 4 (50%):** $0.5 \\times [({lp_ax_v:+.4f}) + ({lp_radial_corr_mm:+.4f})] = \\mathbf{{{shim_b4:+.3f}\\text{{ mm}}}}$ *({'หนุนขึ้น' if shim_b4>=0 else 'ถอนออก'} {abs(shim_b4)*100:.1f} ขีด)*\n"
+                f"  2. **Gen Bearing 5 (50%):** $0.5 \\times [({-b5_ax_v:+.4f}) + ({gen_radial_corr_mm:+.4f})] = \\mathbf{{{shim_b5:+.3f}\\text{{ mm}}}}$ *({'หนุนขึ้น' if shim_b5>=0 else 'ถอนออก'} {abs(shim_b5)*100:.1f} ขีด)*\n"
+                f"  3. **Gen Bearing 6 (50%):** $0.5 \\times [({-b6_ax_v:+.4f}) + ({gen_radial_corr_mm:+.4f})] = \\mathbf{{{shim_b6:+.3f}\\text{{ mm}}}}$ *({'หนุนขึ้น' if shim_b6>=0 else 'ถอนออก'} {abs(shim_b6)*100:.1f} ขีด)*"
+            )
+            st.markdown("* **แนวนอน (ซ้าย–ขวา) — แบ่งครึ่ง 50% ของแต่ละฝั่ง:**")
+            st.markdown(
+                f"  1. **LP Bearing 4 (50%):** $0.5 \\times [({lp_ax_h:+.4f}) + ({-lp_left_of_gen_mm:+.4f})] = \\mathbf{{{shift_b4:+.3f}\\text{{ mm}}}}$ *({'เลื่อนซ้าย L' if shift_b4>=0 else 'เลื่อนขวา R'} {abs(shift_b4)*100:.1f} ขีด)*\n"
+                f"  2. **Gen Bearing 5 (50%):** $0.5 \\times [({-b5_ax_h:+.4f}) + ({lp_left_of_gen_mm:+.4f})] = \\mathbf{{{shift_b5:+.3f}\\text{{ mm}}}}$ *({'เลื่อนซ้าย L' if shift_b5>=0 else 'เลื่อนขวา R'} {abs(shift_b5)*100:.1f} ขีด)*\n"
+                f"  3. **Gen Bearing 6 (50%):** $0.5 \\times [({-b6_ax_h:+.4f}) + ({lp_left_of_gen_mm:+.4f})] = \\mathbf{{{shift_b6:+.3f}\\text{{ mm}}}}$ *({'เลื่อนซ้าย L' if shift_b6>=0 else 'เลื่อนขวา R'} {abs(shift_b6)*100:.1f} ขีด)*"
+            )
